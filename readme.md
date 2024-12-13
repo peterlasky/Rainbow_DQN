@@ -1,6 +1,6 @@
 
-## Custom Rainbow DQN - User Guide
-A highly flexible implementation for applying "rainbow DQN methods" to Atari 2600 games using `gymnasium's` vectorized environments.  Currently `stable_baselines3` appears to have the most comprehensive package in the public domain, but I wanted to build some of them from the ground up to understand the implementations and fine tune various hyperparameters.  
+## Vectorized Custom Rainbow DQN
+A highly flexible implementation for applying "rainbow DQN methods" to Atari 2600 games using `gymnasium's` vectorized environments.  Currently `stable_baselines3` appears to have the most comprehensive package in the public domain, but I wanted to build some of them from the ground up to understand the implementations and fine tune various hyperparameters. I also wanted to explore speed tradeoffs with vectorization a 24-core processor.
 
 #### Set-up
 These steps build the environment as of October 2024, but the dependencies have been changing, so I haven't included an environment file.  
