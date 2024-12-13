@@ -44,7 +44,7 @@ def get_single_env(
 def get_vectorized_envs(
             env_name:           str = None,
             n_envs:             int = 2,
-            asynchronous:       bool= False,            # Not used in this implementation
+            asynchronous:       bool= False,
             train:              bool= True, 
             record_video:       bool= False,
             noop_min:           int = 1,
@@ -53,15 +53,6 @@ def get_vectorized_envs(
             seed:               int = 0,
             video_dir:          str = None,
             fire_on_life_loss:  bool= False) -> gym.vector.AsyncVectorEnv:
-    
-    if train:
-            terminal_on_life_loss = True
-            clip_reward = True
-            fire_on_life_loss = False
-    else:
-            terminal_on_life_loss = False
-            clip_reward = False
-            fire_on_life_loss = fire_on_life_loss
     ''' 
     Build gymnasium.Env or vectorized environments:
     - train_env: Training environment with terminal on life loss and reward clipping
@@ -72,13 +63,19 @@ def get_vectorized_envs(
     - Both environments' outer wrappers return the last 5 images (5, 84, 84) or (5, 42, 42)
     - Both fire on reset and apply a random number of no-ops (min=5, max=noop_max) at the start of each episode.
     '''
+    
+    if train:
+        terminal_on_life_loss = True
+        clip_reward = True
+        fire_on_life_loss = False
+    else:
+        terminal_on_life_loss = False
+        clip_reward = False
 
     def make_single_env(seed_offset=0) -> Callable[[], gym.Env]:
         """ Returns a factory function for creating a single environment instance. """
         def _init():
             env = gym.make(env_name, render_mode='rgb_array')
-            clip_reward = True
-            fire_on_life_loss = False
             return MyVecAtariWrapper(
                 env=env, 
                 noop_min=noop_min, 
@@ -89,17 +86,11 @@ def get_vectorized_envs(
                 clip_reward=clip_reward,
                 fire_on_life_loss=fire_on_life_loss,
                 record_video=False,
-                video_dir=None
+                video_dir=None,
             )
         return _init
 
-    #if n_envs == 1:
-    #    # Single environment
-    #    return make_single_env()()
-    #else:
     if asynchronous:
-            # Asynchronous environments
         return AsyncVectorEnv([make_single_env(i) for i in range(n_envs)])
     else:
         return SyncVectorEnv([make_single_env(i) for i in range(n_envs)])
-    
