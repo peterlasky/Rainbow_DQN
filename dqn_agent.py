@@ -312,7 +312,7 @@ class DQN:
                 break
         # -- end training loop --
 
-    # Exit steps
+    # Exit steps: After the training loop ends, perform the following actions:
         if self.record_interval is not None: self.video_recorder.evaluate(steps, 0)
         clear_output()
         print('Exiting training loop....')
@@ -338,7 +338,7 @@ class DQN:
         print(f'Trailing Avg (last {self.trailing_avg_trail}): {self.evaluator.trailing_avg}')
         print(f'Time elapsed: {hh_mm_ss}')
 
-        self._cleanup()
+        self._cleanup() # critical step. see definition of _cleanup()
     # ----  end .train() ----
 
     def _update_policy(self):
@@ -405,9 +405,10 @@ class DQN:
     # ----  end ._verify_parameters() ----``
 
     def _cleanup(self):
-        ''' Close environments
-           Important: Delete memory buffer.  84 x 84 x 1_000_000 x uint8 =~ 35gb.  Deletion avoids a memory crash in the 
+        '''
+        1. Delete memory buffer: 84 x 84 x 1_000_000 x uint8 =~ 35gb.  Deletion avoids a memory crash in the 
          case where DQN objects are created and left open in a notebook.
+        2. 
          '''
         del self.memory._state_history
         del self.pbar

@@ -53,11 +53,14 @@ Parameters, checkpoints, videos, and evaluation histories are all saved to or up
 #### Memory
 The replay buffer takes the most memory.  The main constraint is the replay buffer.  Memory use is `memory_size` $* ($`screen_size`$^2) * 5$.  The default setting of $1,000,000 * 84 * 84 * 5 \sim 35$ GB.  We delete the memory buffer on exiting the training loop to avoid an out of memory crash if, e.g. , multiple instances of `DQN` are opened in *Jupyter*.
 
-#### Vectorization and Environment
+#### Vectorization
 The training loop uses `gymnasium`'s vectorzed environment structure. The original *DeepMind* algortith performs a policy update every 4 steps, on a batch of $32$ transitions taken from the replay buffer.  In a vectorized environment, we need to adjust:  If `n_envs` $=1$, we perform a policy update every 4 steps.  If `n_envs` $= 4$, we perform a policy update each step. However, if `n_envs` $= 8$, we perform two updates of $32$ each step and, similarly, if `n_envs`=16 we perform four batch updates of $32$ each step.  The effect of training multiple batches consecutively (i.e., out of turn) becomes irrelevant as a large memory buffer is filled.
 
-The evaluation loop is executed infrequently and uses a single, non-vectorized `gymnasium` environment. 
+The evaluation loop is executed infrequently and uses a single, non-vectorized `gymnasium` environment.
 
+I ran 16 environments on a bare-bones dqn model.  It only ran 35% faster than a single environment.
+
+#### Environment wrappers
 I've created custom `gymnasium` wrappers that likely exist. I've also used a few `gymnasium`-compatible wrappers from the `stable_baselines3` library.
 
 1. `five_stack`: stores each state / new state in a combined 5 frame stack observation, such that [:4] is the *state* and [1:] is the *next_state*.
