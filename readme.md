@@ -45,7 +45,9 @@ Parameters are passed by dictionary. Each parameter has a default value (below).
 ```
 
 At `evalation_interval` steps, the evaluator simulates `n_games_per_eval` games (all lives) and updates the plots:
-![](assets/plot_example.png)
+<div style="width: auto; height: calc(100% - 20px); overflow: hidden;">
+  <img src="assets/plot_example.png" style="display: block; width: 100%; margin-bottom: -13px;" alt="Plot Example">
+</div>
 
 #### Logging
 Parameters, checkpoints, videos, and evaluation histories are all saved to or updated in the `[log_dir]/[name]` directory, based on parameter settings.    
