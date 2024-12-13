@@ -77,7 +77,7 @@ class VecActionHandler:
                  screen_size:   int = None,
                  device:        torch.device = torch.device('cuda')):
         
-        assert n_envs in [1, 2, 4, 8, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60,64 ], f"{n_envs} envs is not supported: Number of environments must be in [1,2] or divisible by 4 and <= 64"
+        assert ((n_envs in [1, 2]) or (n_envs % 4 == 0) and (n_envs <= 64)), "Number of environments must be in [1,2] or divisible by 4 and <= 64" 
 
         self.policy_net = policy_net
         self.n_envs = n_envs

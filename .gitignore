@@ -30,4 +30,7 @@ scratchpad.ipynb
 # Ignore the old files
 old_files/
 
+# Ignore some of the test files
 test.ipynb
+time_test.ipynb
+

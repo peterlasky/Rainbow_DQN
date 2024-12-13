@@ -56,9 +56,9 @@ The replay buffer takes the most memory.  The main constraint is the replay buff
 #### Vectorization
 The training loop uses `gymnasium`'s vectorzed environment structure. The original *DeepMind* algortith performs a policy update every 4 steps, on a batch of $32$ transitions taken from the replay buffer.  In a vectorized environment, we need to adjust:  If `n_envs` $=1$, we perform a policy update every 4 steps.  If `n_envs` $= 4$, we perform a policy update each step. However, if `n_envs` $= 8$, we perform two updates of $32$ each step and, similarly, if `n_envs`=16 we perform four batch updates of $32$ each step.  The effect of training multiple batches consecutively (i.e., out of turn) becomes irrelevant as a large memory buffer is filled.
 
-The evaluation loop is executed infrequently and uses a single, non-vectorized `gymnasium` environment.
-
-I ran 16 environments on a bare-bones dqn model.  It only ran 35% faster than a single environment.
+The evaluation loop is executed infrequently and uses a single, non-vectorized `gymnasium` environment.  Speed increase was significant, but not as much as I expected.  Using Intel-9 (24 cores) and NVIDIA RTX 4090:
+- Basic DQN: 16 vectorized environments vs single environment: 20-22% faster.
+- Rainbow DQN: 16 vectorized environments vs single environment: 25-29% faster.
 
 #### Environment wrappers
 I've created custom `gymnasium` wrappers that likely exist. I've also used a few `gymnasium`-compatible wrappers from the `stable_baselines3` library.
@@ -69,7 +69,7 @@ I've created custom `gymnasium` wrappers that likely exist. I've also used a few
 4. `set_seed`: to seed single or vectorized environments.  In my implementation the same seed is applied as the random and numpy seed (although vectorized seeds are increments of the given seed)
 
 #### Screen size
-The standard approach resizes the default color screen (210,160,3) to b&w (84,84).  But for certain "boxy" games (e.g., **Breakout**), (42,42) works as well, allowing a 75% reduction in memory. I haven't run exact like-for-like comparisons nor have I run tests using 42x42 frame size on a wide range of Atari games.  The modification from the *DeepMind* convolutional layer format is constructed by reducing the kernel and stride on the first convolutional layer:
+The standard approach resizes the default color screen (210,160,3) to b&w (84,84).  But for certain "boxy" games (e.g., **Breakout**), (42,42) works as well, allowing a 75% reduction in memory. I haven't run exact like-for-like comparisons nor have I run tests using 42x42 frame size on a wide range of Atari games.  The modification from the *DeepMind* convolutional layer format is constructed by altering the kernel and stride on the first convolutional layer:
 ```python
     # Adjust the kernal and stride for conv layer 1 based on screen size
     assert (screen_size in [42, 84]), "Screen size must be 42 or 84"

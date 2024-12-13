@@ -20,11 +20,8 @@ from IPython.display import clear_output
 # Import custom classes
 from modules.policy.atari_policy_net import AtariPolicyNet
 from modules.action_handlers import ActionHandler, VecActionHandler
-from modules.utils import FilePathManager, PBar, Logger, Plotter
+from modules.utils import FilePathManager, PBar, Logger, Plotter, ipynb
 from modules.evaluator import Evaluator
-
-
-
 from modules.replay_buffer.get_buffers import get_replay_buffers
 from modules.environment.get_environment import get_vectorized_envs, get_single_env
 
@@ -76,7 +73,7 @@ class DQN:
         self.eval_interval =            p.get('eval_interval',              50_000                        )
         self.n_games_per_eval =         p.get('n_games_per_eval',           10                            )
         self.checkpoint_interval =      p.get('checkpoint_interval',        2_500_000                     )
-        self.record_interval=           p.get('record_interval',            2_500_000                     ) 
+        self.record_interval=           p.get('record_interval',            None                     ) 
     
         # Exit conditions   (time in minutes)
         self.max_steps =                p.get('max_steps',                  20_000_000                    )
@@ -101,7 +98,7 @@ class DQN:
         #self.std_init =                 p.get('std_init',                   0.017                        )
 
         # Logging parameters
-        self.trailing_avg_trail =       p.get('trailing_avg_trail',         20                            ) 
+        self.trailing_avg_trail =       p.get('trailing_avg_trail',         20                            )
         self.name =                     p.get('name',                       '[no name]'                   )
         self.log_dir=                   p.get('log_dir',                    '[no name]'                   )
         self.overwrite_previous=        p.get('overwrite_previous',         False                         )
@@ -235,7 +232,7 @@ class DQN:
         dones = np.array([True] * self.n_envs)
         truncateds = np.array([False] * self.n_envs)
         frames, _ = self.train_envs.reset()
-        clear_output()
+        if ipynb(): clear_output()
         self.pbar.start()
         
         while True:
@@ -314,7 +311,7 @@ class DQN:
 
     # Exit steps: After the training loop ends, perform the following actions:
         if self.record_interval is not None: self.video_recorder.evaluate(steps, 0)
-        clear_output()
+        if ipynb(): clear_output()
         print('Exiting training loop....')
         if self.evaluator.avg > self.exit_trailing_average:
             print(f'Exit condition: trailing average reached {self.exit_trailing_average}')
@@ -337,8 +334,11 @@ class DQN:
         print(f'Best Score: {self.evaluator.best_score}')
         print(f'Trailing Avg (last {self.trailing_avg_trail}): {self.evaluator.trailing_avg}')
         print(f'Time elapsed: {hh_mm_ss}')
-
+        
+        time_elapsed = hh_mm_ss
+        trailing_avg = self.evaluator.trailing_avg
         self._cleanup() # critical step. see definition of _cleanup()
+        return time_elapsed, trailing_avg
     # ----  end .train() ----
 
     def _update_policy(self):
@@ -396,12 +396,13 @@ class DQN:
         assert self.pbar_update_interval % self.n_envs == 0, "pbar_update_interval must be divisible by n_envs"
         assert self.target_update_interval % self.n_envs == 0, "target_update_interval must be divisible by n_envs"
         assert self.eval_interval % self.n_envs == 0, "eval_interval must be divisible by n_envs"
-        assert self.record_interval % self.n_envs == 0, "record_interval must be divisible by n_envs"
+        if self.record_interval is not None:
+            assert self.record_interval % self.n_envs == 0, "record_interval must be divisible by n_envs"
         assert self.checkpoint_interval % self.n_envs == 0, "checkpoint_interval must be divisible by n_envs"
 
         if torch.cuda.is_available():
             self.device = torch.device('cuda')
-        else: raise "Cuda not available: Use a machine with GPU"
+        else: raise "Cuda not available: Use a machine with GPU."
     # ----  end ._verify_parameters() ----``
 
     def _cleanup(self):

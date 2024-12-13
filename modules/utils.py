@@ -125,7 +125,7 @@ class PBar:
             {'eps'   : f'{eps:,}',
              'ev_avg': f'{avg:.1f}', 
              'tr_avg': f'{trailing_avg:.1f}',
-             'rate'  : f'{rate:.1f} st/s'})
+             'rate'  : f'{rate:.1f} stp/s'})
         if steps < self.max_steps:
             self._pbar.update(self.increment)
             
@@ -213,3 +213,12 @@ class Plotter:
             plt.savefig(self.plot_filepath)
         plt.show()
 # ---- end of Plotter class ----
+
+import IPython
+def ipynb():
+    try:
+        # Check if IPython is running and if the environment is a Jupyter notebook
+        from IPython import get_ipython
+        return "ipykernel" in str(type(get_ipython()))
+    except ImportError:
+        return False
