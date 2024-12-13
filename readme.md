@@ -45,7 +45,7 @@ Parameters are passed by dictionary. Each parameter has a default value (below).
 ```
 
 At `evalation_interval` steps, the evaluator simulates `n_games_per_eval` games (all lives) and updates the plots:
-<div style="width: auto; height: calc(100% - 20px); overflow: hidden;">
+<div style="width: auto; height: calc(100% - 13px); overflow: hidden;">
   <img src="assets/plot_example.png" style="display: block; width: 100%; margin-bottom: -13px;" alt="Plot Example">
 </div>
 
@@ -53,20 +53,20 @@ At `evalation_interval` steps, the evaluator simulates `n_games_per_eval` games 
 Parameters, checkpoints, videos, and evaluation histories are all saved to or updated in the `[log_dir]/[name]` directory, based on parameter settings.    
 
 #### Memory
-The replay buffer takes the most memory.  The main constraint is the replay buffer.  Memory use is `memory_size` $* ($`screen_size`$^2) * 5$.  The default setting of $1,000,000 * 84 * 84 * 5 \sim 35$ GB.  We delete the memory buffer on exiting the training loop to avoid an out of memory crash if, e.g. , multiple instances of `DQN` are opened in *Jupyter*.
+The replay buffer takes the most memory.  The main constraint is the replay buffer.  Memory use is `memory_size` $* ($`screen_size`$^2) * 5$.  The default setting of $1,000,000 * 84 * 84 * 5 \sim 35$ GB.  We delete the memory buffer on exiting the training loop to avoid an out of memory crash if, e.g. , multiple instances of `DQN` are opened in the notebook.
 
 #### Vectorization
 The training loop uses `gymnasium`'s vectorzed environment structure. The original *DeepMind* algortith performs a policy update every 4 steps, on a batch of $32$ transitions taken from the replay buffer.  In a vectorized environment, we need to adjust:  If `n_envs` $=1$, we perform a policy update every 4 steps.  If `n_envs` $= 4$, we perform a policy update each step. However, if `n_envs` $= 8$, we perform two updates of $32$ each step and, similarly, if `n_envs`=16 we perform four batch updates of $32$ each step.  The effect of training multiple batches consecutively (i.e., out of turn) becomes irrelevant as a large memory buffer is filled.
 
 The evaluation loop is executed infrequently and uses a single, non-vectorized `gymnasium` environment.  Speed increase was significant, but not as much as I expected.  Using Intel-9 (24 cores) and NVIDIA RTX 4090:
-- Basic DQN: 16 vectorized environments vs single environment: 20-22% faster.
-- Rainbow DQN: 16 vectorized environments vs single environment: 25-29% faster.
+- **Basic DQN**: 16 vectorized environments vs single environment: 20-22% faster.
+- **Rainbow DQN**: 16 vectorized environments vs single environment: 25-29% faster.
 
 #### Environment wrappers
 I've created custom `gymnasium` wrappers that likely exist. I've also used a few `gymnasium`-compatible wrappers from the `stable_baselines3` library.
 
 1. `five_stack`: stores each state / new state in a combined 5 frame stack observation, such that [:4] is the *state* and [1:] is the *next_state*.
-2. `fire_on_life_loss`: the original **Deep Mind** algorithim used a 5% epsilon for evaluation mode to avoid games getting stuck.  For example, games like `breakout` that require a `FIRE` command to restart after each life lost will pause indefinitely if we use a pure `argmax` policy that returns an action other than `FIRE`.  This wrapper, if used, automatically triggers a fire when a life is lost, allowing us to lower the epsilon closer to zero to rely solely on the policy's best actions.  In many games the difference won't matter.
+2. `fire_on_life_loss`: the original **DeepMind** algorithim used a 5% epsilon for evaluation mode to avoid games getting stuck.  For example, games like `breakout` that require a `FIRE` command to restart after each life lost will pause indefinitely if we use a pure `argmax` policy that returns an action other than `FIRE`.  This wrapper, if used, automatically triggers a fire when a life is lost, allowing us to lower the epsilon closer to zero to rely solely on the policy's best actions.  In many games the difference won't matter.
 3. `noop_reset` allows for a range of noop_steps upon a reset.
 4. `set_seed`: to seed single or vectorized environments.  In my implementation the same seed is applied as the random and numpy seed (although vectorized seeds are increments of the given seed)
 
@@ -181,17 +181,19 @@ Videos are periodically recorded by setting the `record_interval` parameters.  S
 
 #### Citations and acknolowledgements:
 If you use ideas from this work, please cite these papers:
-1. Mnih, V., Kavukcuoglu, K., Silver, D., Rusu, A. A., Veness, J., Bellemare, M. G., ... & Hassabis, D. (2013). Playing Atari with Deep Reinforcement Learning. [arXiv:1312.5602](https://arxiv.org/abs/1312.5602)
-2. Hessel, M., Modayil, J., Van Hasselt, H., Schaul, T., Ostrovski, G., Dabney, W., ... & Silver, D. (2017). Rainbow: Combining Improvements in Deep Reinforcement Learning. [arXiv:1710.02298](https://arxiv.org/abs/1710.02298). This paper integrates several key advancements in deep reinforcement learning, including:</small>
-- **Double Q-Learning** ([Van Hasselt et al., 2015](https://arxiv.org/abs/1509.06461)),
-- **Prioritized Experience Replay** ([Schaul et al., 2015](https://arxiv.org/abs/1511.05952))
-- **Dueling Network Architectures** ([Wang et al., 2015](https://arxiv.org/abs/1511.06581))
-- **Multi-step Learning** ([Sutton, 1988](https://webdocs.cs.ualberta.ca/~sutton/papers/sutton-88-with-erratum.pdf))
-- **Distributional RL** ([Bellemare et al., 2017](https://arxiv.org/abs/1707.06887))
-- **Noisy Nets** ([Fortunato et al., 2017](https://arxiv.org/abs/1706.10295))
+1. Mnih, V., Kavukcuoglu, K., Silver, D., Rusu, A. A., Veness, J., Bellemare, M. G., ... & Hassabis, D. (2013). *Playing Atari with Deep Reinforcement Learning*, [arXiv:1312.5602](https://arxiv.org/abs/1312.5602)
+2. Hessel, M., Modayil, J., Van Hasselt, H., Schaul, T., Ostrovski, G., Dabney, W., ... & Silver, D. (2017). *Rainbow: Combining Improvements in Deep Reinforcement Learning*,[arXiv:1710.02298](https://arxiv.org/abs/1710.02298). This paper integrates several key advancements in deep reinforcement learning, including:
+<small>
+- **Double Q-Learning** ([*Deep Reinforcement Learning with Double Q-learning*](https://arxiv.org/abs/1509.06461), Van Hasselt et al., 2015)  
+- **Prioritized Experience Replay** ([*Prioritized Experience Replay*](https://arxiv.org/abs/1511.05952), Schaul et al., 2015)  
+- **Dueling Network Architectures** ([*Dueling Network Architectures for Deep Reinforcement Learning*](https://arxiv.org/abs/1511.06581), Wang et al., 2015)  
+- **Multi-step Learning** ([*Multi-step Reinforcement Learning: A Unifying Algorithm*](https://arxiv.org/abs/1703.01327), De Asis et al., 2017)  
+- **Distributional RL** ([*A Distributional Perspective on Reinforcement Learning*](https://arxiv.org/abs/1707.06887), Bellemare et al., 2017)  
+- **Noisy Nets** ([*Noisy Networks for Exploration*](https://arxiv.org/abs/1706.10295), Fortunato et al., 2017)  
 </small>
 
-For conding inspiration I used the following:
+For coding, understanding, and inspiration, I relied on the following:
+<small>
 1. Wetlui's basic [DQN implementation](https://github.com/wetliu/dqn_pytorch) was a great starting point for this project. 
 2. Curt Park's repository [rainbow-is-all-you-need](https://github.com/Curt-Park/rainbow-is-all-you-need) was helpful in understanding the underlying concepts of each of the rainbow methods.
- 
+</small>
