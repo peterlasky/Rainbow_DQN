@@ -46,7 +46,7 @@ Parameters are passed by dictionary. Each parameter has a default value (below).
 
 At `evalation_interval` steps, the evaluator simulates `n_games_per_eval` games (all lives) and updates the plots:
 <div style="width: auto; height: calc(100% - 13px); overflow: hidden;">
-  <img src="assets/plot_example.png" style="display: block; width: 100%; margin-bottom: -13px;" alt="Plot Example">
+  <img src="assets/plot_example.png" style="display: block; width: 80%; margin-bottom: -13px;" alt="Plot Example">
 </div>
 
 #### Logging

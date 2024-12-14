@@ -150,12 +150,14 @@ class DQN:
                         noop_max        = self.noop_max,
                         screen_size     = self.screen_size,
                         seed            = self.seed)
-        self.record_env = get_single_env(
+        if self.record_interval is not None:
+            self.record_env = get_single_env(
                         env_name        = self.env_name,
                         noop_min        = self.noop_min,
                         noop_max        = self.noop_max,
                         screen_size     = self.screen_size,
-                        seed            = self.seed)
+                        seed            = self.seed,
+                        record_video    = True)
         #print(f'Early Return: Dummy DQN, exiting at {inspect.currentframe().f_lineno}'); return
         # Policy network and target network
         self.policy_net =    AtariPolicyNet(

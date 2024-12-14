@@ -229,8 +229,7 @@ def ipynb():
 # ---- end of ipynb function ----
 
 
-def plot_multiple_results(log_dir: str, 
-                          names: List[str],
+def plot_multiple_results(names: List[str],
                           data_col: str = 'eval_avg'):
     assert data_col in ['best_score','eval_avg','trailing_avg','loss']
 
@@ -239,7 +238,8 @@ def plot_multiple_results(log_dir: str,
     # append the dataframes to a list of dataframes
     dfs = []
     for name in names:
-        csv_path = os.path.join(log_dir, name, name + '.csv')
+        file = os.path.split(name)[-1] + '.csv'
+        csv_path = os.path.join(name, file)
         print(f'Looking for {csv_path}')
         if os.path.exists(csv_path):
             df = pd.read_csv(csv_path)
