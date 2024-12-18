@@ -1,44 +1,26 @@
 
 ## Vectorized Custom Rainbow DQN
-A highly flexible implementation for applying "rainbow DQN methods" to Atari 2600 games using `gymnasium's` vectorized environments.  Currently `stable_baselines3` appears to have the most comprehensive package in the public domain, but I wanted to build some of them from the ground up to understand the implementations and fine tune various hyperparameters. I also wanted to explore speed tradeoffs with vectorization a 24-core processor.
-
-#### Set-up
-These steps build the environment as of October 2024, but the dependencies have been changing, so I haven't included an environment file.  
-Please check the `Gymnasium` docs at the [Farama Foundation]('https://gymnasium.farama.org/') if this doesn't work.  The `RecordVideo` wrapper requires `moviepy`. 
-```bash
-conda create -n my_atari_env -c conda-forge python=3.10 pytorch numpy swig tqdm -y
-pip install gymnasium[atari,accept-rom-license] moviepy
-```
-
-For `Gymnasium`-compatible wrappers from `stable-baselines3`:
-```bash  
-pip install stable-baselines3   
-```
+A highly flexible implementation for applying "rainbow DQN methods" to *Atari 2600* games using `gymnasium's` vectorized environments.  I built this mostly ground up to understand the implementations and fine tune various hyperparameters. I also wanted to explore speed tradeoffs with vectorization a 24-core processor and an RTX-4090 GPU.
 
 #### Basic use
 Parameters are passed by dictionary, then passed to the parameter handler. Each parameter has a default value (below). 
 ```python
   p = dict(
-      name=               'DDQN',
-      note=               '''DDQN with 16 parallel environments. ''',
-      env_name =          'Breakout', # defaults to NoFrameskip-v4 version
-      log_dir=            'breakout_tests',
-      overwrite_logs_folder= True,
-      asynchronous=       False,
-      doubleQ=            True,
-      dueling=            False,
-      noisy_linear=       False,
-      categorical_DQN=    False,
-      prioritized_replay= False,
-      n_step_learning=    False,
-      screen_size=        42,
-      memory_size=        1_000_000,
-      eval_interval=      100_000,
-      max_steps=          20_000_000, 
-      record_interval=    10_000_000, 
-      n_games_per_eval=   5,
-      n_envs=             16,
-      pbar_update_interval= 400,
+      name=                   'DDQN',
+      env_name =              'BreakoutNoFrameSkip-v4',
+      dueling=                False,
+      noisy_linear=           False,
+      categorical_DQN=        False,
+      prioritized_replay=     False,
+      n_step_learning=        False,
+      screen_size=            42,
+      memory_size=            1_000_000,
+      eval_interval=          100_000,
+      max_steps=              20_000_000, 
+      record_interval=        10_000_000, 
+      n_games_per_eval=       5,
+      n_envs=                 16,
+      group_training_losses=  True,
     )
   dqn = DQN(p)
   dqn.train()
@@ -46,22 +28,23 @@ Parameters are passed by dictionary, then passed to the parameter handler. Each 
 
 At `evalation_interval` steps, the evaluator simulates `n_games_per_eval` games (all lives) and updates the plots:
 <div style="width: auto; height: calc(100% - 13px); overflow: hidden;">
-  <img src="assets/plot_example.png" style="display: block; width: 80%; margin-bottom: -13px;" alt="Plot Example">
+  <img src="assets/plot_example.png" style="display: block; width: 50%; margin-bottom: -13px;" alt="Plot Example">
 </div>
 
 #### Logging
 Parameters, checkpoints, videos, and evaluation histories are all saved to or updated in the `[log_dir]/[name]` directory, based on parameter settings.    
 
 #### Memory
-The replay buffer takes the most memory.  The main constraint is the replay buffer.  Memory use is `memory_size` $* ($`screen_size`$^2) * 5$.  The default setting of $1,000,000 * 84 * 84 * 5 \sim 35$ GB.  We delete the memory buffer on exiting the training loop to avoid an out of memory crash if, e.g. , multiple instances of `DQN` are opened in the notebook.
+The replay buffer takes the most memory.  The main constraint is the replay buffer.  Memory use is `memory_size` $* ($`screen_size`$^2) * 5$.  The default setting of $1,000,000 * 84 * 84 * 5 \sim 35$ GB.  We delete the memory buffer on exiting the training loop to avoid an out of memory crash if, e.g., multiple instances of `DQN` are opened in the notebook.
 
 #### Vectorization
 ##### *Parallel environments*
 The training loop uses `gymnasium`'s vectorzed environment structure. The original *DeepMind* algortith performs a policy update every 4 steps, on a batch of $32$ transitions taken from the replay buffer.  In a vectorized environment, we need to adjust:  If `n_envs` $=1$, we perform a policy update every 4 steps.  If `n_envs` $= 4$, we perform a policy update each step. However, if `n_envs` $= 8$, we perform two updates of $32$ each step and, similarly, if `n_envs`=16 we perform four batch updates of $32$ each step.  The effect of training multiple batches consecutively (i.e., out of turn) becomes irrelevant as a large memory buffer is filled.
-##### *Grouping the backward passes*
-If the `n_envs` parameter is $\geq 4 $ and the `group_training_losses == True`, the policy will accumulate the loss over multiple forward passes and train on the average backward pass.
+##### *Option to grouping the backward passes for large `n_envs`*
+If the `n_envs` parameter is $\geq 4 $ and if the `group_training_losses == True`, the policy update will accumulate the loss over multiple forward passes and train on the average backward pass. For example, if `n_envs ==` 16, it will conduct $16 \div 4 = 4 $ forward passes, accumulate the losses, then conduct $1$ backward pass on $1/4$ of that accumulated loss tensor.
 
-The evaluation loop is executed infrequently and uses a single, non-vectorized `gymnasium` environment.  Speed increase was significant, but not as much as I expected.  Using Intel I9 (24 cores) and NVIDIA RTX 4090.  I tested up to 32 threads, but the speed increase was diminishing.
+**Note:**
+The `gymnasium` vectorized environments, as the `n_envs` increase, don't appear to produce significant speed increases.  Using Intel I9 (24 cores) and NVIDIA RTX 4090.  I tested up to 32 threads, but the speed increase was diminishing.  I was not running this on an isolated machine, so other processes were possibly interfering.
 - **Basic DQN**: 16 vectorized environments vs single environment: 20-22% faster.
 - **Rainbow DQN**: 16 vectorized environments vs single environment: 25-29% faster.
 
@@ -99,6 +82,20 @@ Videos are periodically recorded by setting the `record_interval` parameters.  S
 #### To-dos / Future updates 
 - **Tensorboard**: Move the monitoring of progress to a tensorboard to avoid the need to run experiments in Jupyter. 
 - **Checkpoint playback or training resumption**: Policy checkpoints are currently saved, but no the environment or other training data.  So there is currrently no way to run a simulation from the checkpoint, nor is there a way to resume training from a checkpoint.
+
+#### Set-up
+These steps build the environment as of October 2024, but the dependencies have been changing, so I haven't included an environment file.  
+Please check the `Gymnasium` docs at the [Farama Foundation]('https://gymnasium.farama.org/') if this doesn't work.  The `RecordVideo` wrapper requires `moviepy`. 
+```bash
+conda create -n my_atari_env -c conda-forge python=3.10 pytorch numpy swig tqdm -y
+pip install gymnasium[atari,accept-rom-license] moviepy
+```
+
+For `Gymnasium`-compatible wrappers from `stable-baselines3`:
+```bash  
+pip install stable-baselines3   
+```
+
 
 #### Default options
 ```python   
@@ -185,7 +182,7 @@ Videos are periodically recorded by setting the `record_interval` parameters.  S
         )
   ```
 
-#### Citations and acknolowledgements:
+#### Citations / acknolowledgements / licenses:
 If you use ideas from this work, please cite these papers:
 1. Mnih, V., Kavukcuoglu, K., Silver, D., Rusu, A. A., Veness, J., Bellemare, M. G., ... & Hassabis, D. (2013). *Playing Atari with Deep Reinforcement Learning*, [arXiv:1312.5602](https://arxiv.org/abs/1312.5602)
 2. Hessel, M., Modayil, J., Van Hasselt, H., Schaul, T., Ostrovski, G., Dabney, W., ... & Silver, D. (2017). *Rainbow: Combining Improvements in Deep Reinforcement Learning*,[arXiv:1710.02298](https://arxiv.org/abs/1710.02298). This paper integrates several key advancements in deep reinforcement learning, including:
@@ -203,3 +200,8 @@ For coding, understanding, and inspiration, I relied on the following:
 1. Wetlui's basic [DQN implementation](https://github.com/wetliu/dqn_pytorch) was a great starting point for this project. 
 2. Curt Park's repository [rainbow-is-all-you-need](https://github.com/Curt-Park/rainbow-is-all-you-need) was helpful in understanding the underlying concepts of each of the rainbow methods.
 </small>
+
+Also, thanks to:
+- [Farama Foundation](https://gymnasium.farama.org/) for producing, maintaining, `gymnasium` environments, documentation, and libraries.
+- [stablebaselines3](https://github.com/DLR-RM/stable-baselines3) for maintaining the `stable-baselines3` libraries and wrappers available.
+- *Atari 2600 ROMs*, under the [atari-roms](https://github.com/mattgrose/atari-roms) repository. See licensing.

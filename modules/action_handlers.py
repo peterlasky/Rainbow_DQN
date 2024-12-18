@@ -1,4 +1,3 @@
-
 import numpy as np
 import torch
 from typing import Tuple
@@ -121,8 +120,9 @@ class VecActionHandler:
             epsilon = self.eval_epsilon
         else:
             epsilon = self.epsilon
-            # Decrease epsilon to match effective number of steps
-            self.epsilon = max(self.epsilon_final, self.epsilon - self.decrement * self.n_envs)
+            # Each call to get_actions() represents n_envs timesteps of experience
+            if not eval_mode:  # Only reduce epsilon in training mode
+                self.epsilon = max(self.epsilon_final, self.epsilon - self.decrement * self.n_envs)
 
         # Epsilon-greedy: choose random action with probability epsilon
         if np.random.rand() < epsilon:
