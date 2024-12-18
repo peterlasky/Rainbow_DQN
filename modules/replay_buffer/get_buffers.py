@@ -31,12 +31,12 @@ def get_replay_buffers( prioritized_replay:   bool,
     if n_step_learning:
         n_step_memory = ReplayBuffer(
                     batch_size=         batch_size,
-                    memory_size=        n_step_params.memory_size,
+                    memory_size=        n_step_params.n_memory_size,
                     screen_size=        screen_size,
                     output_device=      output_device,
                     n_step_learning=    True,
                     n_steps=            n_step_params.n_steps,           # default usually is 3, passed as parameter to the class
-                    n_step_gamma=       n_step_params.gamma)        # default usually is .99, passed as parameter to the class
+                    n_step_gamma=       n_step_params.n_gamma)        # default usually is .99, passed as parameter to the class
     else:
         n_step_memory = None
 

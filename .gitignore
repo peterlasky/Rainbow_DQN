@@ -34,3 +34,8 @@ old_files/
 test.ipynb
 time_test.ipynb
 
+
+# Ignore my TODO list
+todo.md
+clean_pycache.py
+

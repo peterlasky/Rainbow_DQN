@@ -2,6 +2,7 @@
 import numpy as np
 import torch
 from typing import Tuple
+from types import SimpleNamespace
 import gymnasium as gym
 
 __all__ = ['ActionHandler', 'VecActionHandler']
@@ -10,19 +11,18 @@ class ActionHandler:
     def __init__(self,
                  policy_net:    object,
                  action_space:  object,
-                 screen_size:   int             = None,
-                 device:        torch.device    = torch.device('cuda'),
-                 epsilons:      Tuple           = (1.0, 0.10, 1000000,  0.05)):
-        assert screen_size in [42, 84], "Screen size must be 42 or 84"  
-
+                 screen_size:   int,
+                 device:        torch.device,
+                 epsilons:      SimpleNamespace):
         self.policy_net = policy_net
         self.screen_size = screen_size
         self.action_space = action_space
         self.device = device
-
-        self.epsilon, self.epsilon_final, decay_steps, self.eval_epsilon = epsilons
-        self.decrement = (self.epsilon - self.epsilon_final) / decay_steps
-
+        self.epsilon_start = epsilons.epsilon_start
+        self.epsilon_final = epsilons.epsilon_final
+        self.decrement = epsilons.epsilon_decrement
+        self.eval_epsilon = epsilons.eval_epsilon
+    
     def get_action(self, 
                    state: torch.Tensor, 
                    rand_mode: bool = False, 
@@ -73,7 +73,7 @@ class VecActionHandler:
                  policy_net:    torch.nn.Module,
                  n_envs:        int,
                  action_space:  gym.spaces.Discrete,
-                 epsilons:      Tuple[float, float, int, float],
+                 epsilons:      SimpleNamespace,
                  screen_size:   int = None,
                  device:        torch.device = torch.device('cuda')):
         
@@ -85,8 +85,11 @@ class VecActionHandler:
         self.action_space = action_space
         self.device = device
 
-        self.epsilon, self.epsilon_final, decay_steps, self.eval_epsilon = epsilons
-        self.decrement = (self.epsilon - self.epsilon_final) / decay_steps
+        self.epsilon = epsilons.epsilon_start
+        self.epsilon_final = epsilons.epsilon_final
+        self.decrement = epsilons.epsilon_decrement
+        self.eval_epsilon = epsilons.eval_epsilon
+        
 
     def get_actions(self,
                     states:    np.typing.NDArray[np.float32],

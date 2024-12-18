@@ -64,6 +64,7 @@ class FilePathManager:
         self._note_filepath = os.path.join(log_dir, name, f'{name}_notes.txt')
         self._params_filepath = os.path.join(log_dir, name, f'{name}_params.txt')
         self._plot_filepath = os.path.join(log_dir, name, f'{name}_plot.png')
+        self._video_filepath = os.path.join(log_dir, name, 'videos')
     
     @property
     def checkpoints_dir(self) -> str:
@@ -92,6 +93,10 @@ class FilePathManager:
     @property
     def log_dir(self) -> str:
         return self._log_dir
+
+    @property
+    def video_filepath(self) -> str:
+        return self._video_filepath
 # ---- end of FilePathManager class ----
 
 class PBar:
