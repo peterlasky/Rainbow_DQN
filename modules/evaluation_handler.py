@@ -14,22 +14,22 @@ The evaluator maintains running statistics including:
 
 from collections import deque
 from types import SimpleNamespace
-from typing import Dict, Tuple, Optional
 
 import gymnasium as gym
 import numpy as np
 import pandas as pd
 import torch
 
-from modules.action_handlers import ActionHandler
+from modules.action_handler import ActionHandler
 
 
-class Evaluator:
+class EvaluationHandler:
     """Evaluates and tracks performance of reinforcement learning policies.
     
     Can be used in two modes:
     1. Standard evaluation: Uses basic environment for performance assessment
-    2. Video recording: Uses wrapped environment for capturing gameplay videos
+    2. Video recording: Uses wrapped environment for capturing gameplay videos. In this case, a video is produced
+         each evaluation episode, so I set the default # of games per evaluations = 1
     
     Attributes:
         n_games: Number of episodes per evaluation

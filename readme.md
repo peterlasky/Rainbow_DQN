@@ -8,6 +8,7 @@ Parameters are passed by dictionary, then passed to the parameter handler. Each 
   p = dict(
       name=                   'DDQN',
       env_name =              'BreakoutNoFrameSkip-v4',
+      doubleQ=                True,
       dueling=                False,
       noisy_linear=           False,
       categorical_DQN=        False,

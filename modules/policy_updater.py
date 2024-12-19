@@ -102,18 +102,18 @@ class PolicyUpdater:
         # Single-threaded mode: perform updates sequentially
         if self.p.group_training_losses:
             total_loss = 0.0
-            for _ in range(self.p.n_batch_updates):
+            for _ in range(self.p.n_batch_updates_adjusted):
                 loss = self._do_forward_pass()
                 self._do_backward_pass(loss)
                 total_loss += loss.item()
-            return total_loss / self.p.n_batch_updates
+            return total_loss / self.p.n_batch_updates_adjusted
         
         # Multi-threaded mode: accumulate losses before update
         accumulated_loss = torch.tensor(0.0, device=self.device)
-        for _ in range(self.p.n_batch_updates):
+        for _ in range(self.p.n_batch_updates_adjusted):
             accumulated_loss += self._do_forward_pass()
             
         # Average losses and perform single backward pass
-        average_loss = accumulated_loss / self.p.n_batch_updates
+        average_loss = accumulated_loss / self.p.n_batch_updates_adjusted
         self._do_backward_pass(average_loss)
         return average_loss.item()

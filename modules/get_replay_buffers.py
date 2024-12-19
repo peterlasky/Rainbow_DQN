@@ -9,12 +9,12 @@ which should contain all necessary settings for buffer initialization.
 """
 
 from types import SimpleNamespace
-from typing import Tuple, Dict, Optional, Union
+from typing import Tuple, Optional, Union
 
 import torch
 
-from .per_buffer import PerBuffer
-from .replay_buffer import ReplayBuffer
+from modules.replay_buffers.per_buffer import PerBuffer
+from modules.replay_buffers.replay_buffer import ReplayBuffer
 
 
 def get_replay_buffers(

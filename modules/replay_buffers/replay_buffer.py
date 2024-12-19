@@ -15,7 +15,7 @@ Features:
 
 from collections import deque
 from types import SimpleNamespace
-from typing import Dict, Tuple, Optional, Union, Any
+from typing import Tuple, Optional, Union
 
 import numpy as np
 import torch

@@ -3,7 +3,7 @@
 This module provides utilities for:
     - Progress tracking
     - Experiment logging
-    - Result visualization
+    - Plotting
 """
 
 from datetime import datetime
@@ -11,14 +11,12 @@ from typing import Dict, List, Optional, Union
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-import numpy as np
 import pandas as pd
 import torch
 from IPython.display import clear_output
 from tqdm import tqdm
 
-from .filepath_manager import FilePathManager
-
+from .filepath_handler import FilePathHandler
 __all__ = [
     'PBar',
     'Logger',
@@ -111,7 +109,7 @@ class Logger:
     
     def __init__(
             self,
-            filepaths: FilePathManager,
+            filepaths: FilePathHandler,
             note: str,
             params: Dict
     ) -> None:
@@ -209,8 +207,46 @@ class Plotter:
         plt.show()
 
 
+def validate_device(device) -> torch.device:
+    device = device.lower()
+    # Throw error if device is an invalid string, convert to torch.device otherwise.
+    if isinstance(device, str):
+        try:
+            t_device = torch.device(device)
+        except RuntimeError as e: 
+            print(f"Error: {e}")
+
+    # Throw error if device is not a torch device
+    elif isinstance(device, torch.device):
+        t_device = device
+    else:
+        raise ValueError(f"Invalid device {device} specified.")
+    
+    string_repr = str(t_device)
+    if string_repr == 'cpu':
+        self._p.device = torch.device('cpu')
+        return
+    if string_repr.split(':')[0] == 'cuda':
+        available = torch.cuda.is_available()
+    elif string_repr.split(':')[0] == 'mps':
+        available = torch.backends.mps.is_available()
+    elif string_repr.split(':')[0] == 'xpu':
+        available = torch.xpu.is_available()
+    elif string_repr.split(':')[0] == 'hip':
+        available = torch.hip.is_available()
+    elif string_repr.split(':')[0] == 'cpu':
+        available = True
+    else:
+        raise ValueError(f"Device {device} is not compatible or not recognized.")
+        
+    if not available:
+        raise ValueError(f"Device {device} is not available.")
+        
+    return t_device
+
+
 import IPython
-def ipynb():
+def ipynb() -> bool:
     '''
     Simple program to determin if the code is running in a Jupyter notebook
     '''

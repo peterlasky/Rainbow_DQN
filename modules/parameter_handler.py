@@ -9,11 +9,13 @@ functionality to:
     - Handle device selection (CPU/CUDA)
 """
 
-import torch
 from types import SimpleNamespace
 from typing import Union, Dict, Any
+from pathlib import Path
+import copy
 
-from default_parameters import get_default_parameters
+from default_parameters import DefaultParameters
+from modules.utils import validate_device
 
 
 class ParameterHandler:
@@ -45,27 +47,20 @@ class ParameterHandler:
         if not isinstance(user_parameters, SimpleNamespace):
             raise TypeError('User parameters must be a SimpleNamespace or dictionary')
 
-        # Initialize parameters
-        self._p = user_parameters
-        self._default_parameters = get_default_parameters()
-        
-        # Validate parameter names
+        self._user_parameters = user_parameters
+        self._default_parameters = DefaultParameters()
+
         self._validate_parameter_names()
-        
-        # Merge and process parameters
         self._merge_parameters()
+        self._configure_update_frequency()
         self._add_helper_parameters()
         self._validate_parameter_values()
-        self._configure_update_frequency()
         
-        # Set device
-        self.device = (torch.device('cuda') if torch.cuda.is_available() 
-                      else self._fallback_to_cpu())
 
     def _validate_parameter_names(self) -> None:
         """Ensure all user parameters are valid."""
         default_keys = set(vars(self._default_parameters).keys())
-        user_keys = set(vars(self._p).keys())
+        user_keys = set(vars(self._user_parameters).keys())
         illegal_params = user_keys - default_keys
         
         if illegal_params:
@@ -73,7 +68,7 @@ class ParameterHandler:
 
     def _merge_parameters(self) -> None:
         """Merge user parameters with defaults."""
-        vars(self._default_parameters).update(vars(self._p))
+        vars(self._default_parameters).update(vars(copy.deepcopy(self._user_parameters)))
         self._p = self._default_parameters
 
     def _add_helper_parameters(self) -> None:
@@ -117,37 +112,53 @@ class ParameterHandler:
             raise ValueError(f"Invalid screen size: {p.screen_size}. Must be 42 or 84.")
             
         # Interval validations
-        intervals = [
-            ('pbar_update_interval', p.pbar_update_interval),
-            ('eval_interval', p.eval_interval),
-            ('checkpoint_interval', p.checkpoint_interval)
-        ]
-        if p.record_interval:
-            intervals.append(('record_interval', p.record_interval))
-            
-        for name, value in intervals:
-            if value % p.n_envs != 0:
-                raise ValueError(
-                    f"{name} ({value}) must be divisible by n_envs ({p.n_envs})"
-                )
+        intervals = {
+            'policy_update_interval_adjusted': p.policy_update_interval_adjusted,
+            'pbar_update_interval_adjusted': p.pbar_update_interval,
+            'eval_interval_adjusted': p.eval_interval,
+            'target_update_interval_adjusted': p.target_update_interval,
+            'checkpoint_interval_adjusted': p.checkpoint_interval}
 
+        if p.record_interval:
+            intervals['record_interval_adjusted'] = p.record_interval
+            
+        for k, v in intervals.items():
+            if k == "policy_update_interval_adjusted":
+                continue
+            if v % p.n_envs != 0:
+                ## instead of raising error, let's adjust to the next multiple
+                intervals[k] = v // p.n_envs * p.n_envs
+                short_k = k.rsplit('_',1)[0]
+                print(f"Warning: {short_k} must be divisible by n_envs={p.n_envs}. ", end='')
+                print(f"Adjusting {short_k} from {v} to {intervals[k]}.")
+        p.intervals = SimpleNamespace(**intervals) # store intervals
+
+        # Device validation: uses outside function
+        p.device = validate_device(p.device)
+    
     def _configure_update_frequency(self) -> None:
         """Configure policy update frequency based on environment count."""
         p = self._p
         
         if p.n_envs <= p.policy_update_interval:
+            # Fewer envs than update interval - do fewer updates
             p.policy_update_interval_adjusted = p.policy_update_interval // p.n_envs
-            p.n_batch_updates = 1
+            p.n_batch_updates_adjusted = 1
         else:
-            p.policy_update_interval_adjusted = 1
-            p.n_batch_updates = p.n_envs // p.policy_update_interval
+            # More envs than update interval - do more batch updates
+            p.policy_update_interval_adjusted = p.policy_update_interval
+            p.n_batch_updates_adjusted = p.n_envs // p.policy_update_interval
 
-    def _fallback_to_cpu(self) -> torch.device:
-        """Handle fallback to CPU when CUDA is unavailable."""
-        print("Warning: CUDA not available, using CPU.")
-        return torch.device('cpu')
-
-    def get_parameters(self) -> SimpleNamespace:
+        # Store both original and adjusted values
+        p.n_batch_updates = p.n_batch_updates_adjusted  # Store original for comparison
+        
+        if p.policy_update_interval != p.policy_update_interval_adjusted:
+            print(f'Adjusting policy update interval from {p.policy_update_interval} to {p.policy_update_interval_adjusted} to account for n_envs={p.n_envs}.')
+        if p.n_batch_updates != p.n_batch_updates_adjusted:
+            print(f'Adjusting n_batch_updates from {p.n_batch_updates} to {p.n_batch_updates_adjusted} batch updates per policy update.')
+    
+    @property
+    def all_parameters(self) -> SimpleNamespace:
         """Get organized parameter namespace.
         
         Returns:
@@ -187,3 +198,9 @@ class ParameterHandler:
             p.per_params = None
 
         return p
+
+    # Public
+    def save_user_parameters(self, filepath: Path):
+        # save user parameters as json
+        self._p.user_parameters = vars(self._p)
+        del self._p.user_parameters

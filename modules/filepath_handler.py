@@ -10,11 +10,12 @@ This module provides the FilePathManager class for managing experiment outputs:
 
 from datetime import datetime
 from pathlib import Path
+from typing import Dict, Union
 from types import SimpleNamespace
 import shutil
+import json
 
-
-class FilePathManager:
+class FilePathHandler:
     """Manages experiment directories and file paths.
     
     Creates and manages directory structure for experiment outputs including:
@@ -63,9 +64,10 @@ class FilePathManager:
         self._note_filepath = self._group_dir / f'{p.name}_notes.txt'
         self._params_filepath = self._group_dir / f'{p.name}_params.txt'
         self._plot_filepath = self._group_dir / f'{p.name}_plot.png'
+        self._user_params_filepath = self._group_dir / f'{p.name}_user_params.json'
         
         # Create required directories
-        self._create_directories(p)
+        # self._create_directories(p)
 
     def _setup_group_dir(self, p: SimpleNamespace) -> Path:
         """Setup group directory with proper naming and permissions.
@@ -80,17 +82,19 @@ class FilePathManager:
         
         if group_dir.exists():
             if p.overwrite_previous:
+                print(f'Removing existing directory: {group_dir}')
                 shutil.rmtree(group_dir)
-                group_dir.mkdir()
             else:
                 i = 1
                 while (group_dir.parent / f'{group_dir.name}_{i}').exists():
                     i += 1
                 group_dir = group_dir.parent / f'{group_dir.name}_{i}'
                 
+        print(f'Creating new directory: {group_dir}')
         group_dir.mkdir(exist_ok=True)
         return group_dir
 
+    # @public
     def _create_directories(self, p: SimpleNamespace) -> None:
         """Create all required subdirectories.
         
@@ -98,6 +102,7 @@ class FilePathManager:
             p: Parameters namespace
         """
         self._checkpoints_dir.mkdir(parents=True, exist_ok=True)
+        
         if p.record_interval is not None:
             self._video_dir.mkdir(parents=True, exist_ok=True)
             
@@ -106,6 +111,33 @@ class FilePathManager:
         timestamp_file = self._group_dir / f'created_{timestamp}.txt'
         timestamp_file.write_text(
             f'Folder created {datetime.now().strftime("%m-%d-%Y %H:%M")}'
+        )
+    
+    def save_user_parameters(self, user_parameters: Union[Dict, SimpleNamespace]):
+        """Save user parameters as a JSON file.
+        
+        Args:
+            user_parameters: Parameters to save, either a dict or SimpleNamespace
+        """
+        if isinstance(user_parameters, SimpleNamespace):
+            user_parameters = vars(user_parameters)
+
+        # write as json file
+        with open(self._user_params_filepath, 'w') as f:
+            json.dump(user_parameters, f, indent=4)
+
+        
+    @property
+    def filepaths(self) -> SimpleNamespace:
+        return SimpleNamespace(
+            main_log_dir=self._main_log_dir,
+            group_dir=self._group_dir,
+            checkpoints_dir=self._checkpoints_dir,
+            video_dir=self._video_dir,
+            log_filepath=self._log_filepath,
+            note_filepath=self._note_filepath,
+            params_filepath=self._params_filepath,
+            plot_filepath=self._plot_filepath
         )
 
     @property
@@ -147,3 +179,7 @@ class FilePathManager:
     def plot_filepath(self) -> Path:
         """Path to plot output file."""
         return self._plot_filepath
+
+    @property
+    def user_params_filepath(self) -> Path:
+        return self._user_params_filepath

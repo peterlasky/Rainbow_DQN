@@ -1,4 +1,4 @@
-from dqn_agent import DQN
+from dqn_agent import DQNAgent
 
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -13,7 +13,7 @@ p = dict(
     asynchronous=           False,
 
     group_training_losses = True,
-    data_plotting =         True,
+    data_plotting =         False,
     
     screen_size=        42,
     trailing_avg_trail= 40,
@@ -29,17 +29,10 @@ p = dict(
 p.update(
     name=               'DDQN',
     note=               f'''{p['n_envs']} vectorized environments. ''',
-
-    doubleQ=            True,
-    dueling=            True,
-    noisy_linear=       True,
-    categorical_DQN=    True,
-    prioritized_replay= True,
-    n_step_learning=    True,
     n_envs=             20,
     
     )
-dqn = DQN(p)
+dqn = DQNAgent(p)
 
 dqn.train()
 names.append(dqn.filepaths.sub_dir)
