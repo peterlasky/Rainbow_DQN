@@ -1,81 +1,158 @@
-import gymnasium as gym
+"""Policy network evaluation and performance tracking.
+
+This module provides functionality for evaluating reinforcement learning policies
+and tracking their performance metrics over time. It supports both standard
+evaluation and video recording modes through gymnasium environments.
+
+The evaluator maintains running statistics including:
+    - Best score achieved
+    - Average score over evaluation episodes
+    - Trailing average over a configurable window
+    - Training loss
+    - Performance history in a pandas DataFrame
+"""
+
 from collections import deque
+from types import SimpleNamespace
+from typing import Dict, Tuple, Optional
+
+import gymnasium as gym
 import numpy as np
 import pandas as pd
-from typing import Dict
-from types import SimpleNamespace
 import torch
 
-from modules.action_handlers import ActionHandler # for typing
+from modules.action_handlers import ActionHandler
+
 
 class Evaluator:
-    ''' Helper class to evaluate the policy network
-        In my implementation, I instantiate 2 separate evaluators:
-            1. For evaluating the policy network, we pass in the basic evalation environment that allows for 
-            multiple evaluations.
-            2. For video recording, we pass in a modified evalation environment that records video using
-                gymnasium's video wrapper. 
-    '''
-    def __init__(self, 
-                 params:    SimpleNamespace,
-                 env:       gym.Env, 
-                 ah:        ActionHandler,):
-        self.p = params  # Store the full params object
-        self.n = self.p.n_games_per_eval
-        self.trail = self.p.trailing_avg_trail
-        self.action_handler = ah
-        assert self.n <= self.trail
+    """Evaluates and tracks performance of reinforcement learning policies.
+    
+    Can be used in two modes:
+    1. Standard evaluation: Uses basic environment for performance assessment
+    2. Video recording: Uses wrapped environment for capturing gameplay videos
+    
+    Attributes:
+        n_games: Number of episodes per evaluation
+        trail_length: Length of trailing average window
+        env: Gymnasium environment for evaluation
+        action_handler: Handler for policy action selection
+        trailing_scores: Deque of recent scores for averaging
+        metrics: Current evaluation metrics
+        history: DataFrame of all evaluation results
+    """
+    
+    def __init__(
+            self,
+            params: SimpleNamespace,
+            env: gym.Env,
+            action_handler: ActionHandler,
+    ) -> None:
+        """Initialize the evaluator.
+        
+        Args:
+            params: Configuration parameters including:
+                - n_games_per_eval: Episodes per evaluation
+                - trailing_avg_trail: Length of trailing average window
+                - device: Device for tensor operations
+            env: Gymnasium environment for evaluation
+            action_handler: Policy action selection handler
+            
+        Raises:
+            ValueError: If n_games_per_eval > trailing_avg_trail
+        """
+        if params.n_games_per_eval > params.trailing_avg_trail:
+            raise ValueError(
+                "n_games_per_eval must be <= trailing_avg_trail"
+            )
+            
+        self.n_games = params.n_games_per_eval
+        self.trail_length = params.trailing_avg_trail
         self.env = env
-        self.trailing_scores = deque([0], maxlen=self.trail)
-        self.single_history = {
-                          'steps':          0, 
-                          'best_score':     0.0, 
-                          'eval_avg':       0.0, 
-                          'trailing_avg':   0.0, 
-                          'loss':           0.
-                          }
-        self._history_df = pd.DataFrame(self.single_history, index=[0])
-
-    def evaluate(self, steps: int, recent_loss: float):
-        ''' Evaluate the policy network '''
-        self.single_history['steps'] = steps
-        self.single_history['loss'] = recent_loss
-
-        for _ in range(self.n):
-            frames, _ = self.env.reset()
-            done, truncated = False, False
-            score = 0
-            while not (done or truncated):
-                state = frames[1:]
-                state = torch.from_numpy(state).to(self.p.device)
-                action = self.action_handler.get_action(state, eval=True)  
-                frames, reward, done, truncated, _ = self.env.step(action)
-                score += reward
-
-            # Update trailing scores
-            self.trailing_scores.append(score)      
-            # Update best score
-            self.single_history['best_score'] = max(self.single_history['best_score'], score)
-
-        # Calculate averages
-        self.single_history['trailing_avg'] = np.mean(self.trailing_scores)
-        self.single_history['eval_avg'] = np.array(self.trailing_scores)[-self.n:].mean()
+        self.action_handler = action_handler
+        self.device = params.device
         
-        # add the single history to the history dataframe
-        self._history_df = pd.concat([self._history_df, pd.DataFrame(self.single_history, index=[0])], ignore_index=True)
+        # Initialize tracking containers
+        self.trailing_scores = deque([0.0], maxlen=self.trail_length)
+        self.metrics = {
+            'steps': 0,
+            'best_score': 0.0,
+            'eval_avg': 0.0,
+            'trailing_avg': 0.0,
+            'loss': 0.0
+        }
+        self.history = pd.DataFrame(self.metrics, index=[0])
+
+    def evaluate(self, steps: int, recent_loss: float) -> None:
+        """Evaluate the policy over multiple episodes.
         
+        Runs n_games episodes, updates metrics including:
+        - Best score achieved
+        - Average score over current evaluation
+        - Trailing average over recent evaluations
+        - Training loss
+        
+        Args:
+            steps: Current training step count
+            recent_loss: Recent training loss value
+        """
+        self.metrics['steps'] = steps
+        self.metrics['loss'] = recent_loss
+        
+        # Run evaluation episodes
+        episode_scores = []
+        for _ in range(self.n_games):
+            score = self._run_episode()
+            episode_scores.append(score)
+            self.trailing_scores.append(score)
+            self.metrics['best_score'] = max(
+                self.metrics['best_score'],
+                score
+            )
+            
+        # Update averages
+        self.metrics['trailing_avg'] = np.mean(self.trailing_scores)
+        self.metrics['eval_avg'] = np.mean(episode_scores)
+        
+        # Update history
+        self.history = pd.concat([
+            self.history,
+            pd.DataFrame(self.metrics, index=[0])
+        ], ignore_index=True)
+        
+    def _run_episode(self) -> float:
+        """Run a single evaluation episode.
+        
+        Returns:
+            Total episode reward
+        """
+        frames, _ = self.env.reset()
+        done = truncated = False
+        total_reward = 0.0
+        
+        while not (done or truncated):
+            state = torch.from_numpy(frames[1:]).to(self.device)
+            action = self.action_handler.get_action(state, eval=True)
+            frames, reward, done, truncated, _ = self.env.step(action)
+            total_reward += reward
+            
+        return total_reward
+
     @property
     def best_score(self) -> float:
-        return self.single_history['best_score']
+        """Best score achieved during evaluation."""
+        return self.metrics['best_score']
     
     @property
     def avg(self) -> float:
-        return self.single_history['eval_avg']
+        """Average score over most recent evaluation."""
+        return self.metrics['eval_avg']
     
     @property
     def trailing_avg(self) -> float:
-        return self.single_history['trailing_avg']
+        """Average score over trailing window."""
+        return self.metrics['trailing_avg']
       
     @property
     def history_df(self) -> pd.DataFrame:
-        return self._history_df
+        """Complete history of evaluation metrics."""
+        return self.history

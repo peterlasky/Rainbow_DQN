@@ -1,73 +1,119 @@
 import torch
-import torch.nn.functional as F
 import torch.nn as nn
-from typing import Dict
+import torch.nn.functional as F
+from typing import Dict, Tuple
 from types import SimpleNamespace
 from modules.replay_buffers.replay_buffer import ReplayBuffer
 
+
 class PolicyUpdater:
-    def __init__(self,
-                 memory:                ReplayBuffer = None,
-                 policy_net:            nn.Module    = None,
-                 target_net:            nn.Module    = None,
-                 optimizer:             torch.optim  = None,
-                 params:                SimpleNamespace = None):
-        self.p = params  
+    """Handles policy network updates including forward and backward passes.
+    
+    This class manages the policy network training process, including sampling from
+    replay buffer, computing Q-values, and updating network weights through
+    backpropagation.
+    """
+    
+    def __init__(
+            self,
+            memory: ReplayBuffer,
+            policy_net: nn.Module,
+            target_net: nn.Module,
+            optimizer: torch.optim.Optimizer,
+            params: SimpleNamespace
+    ) -> None:
+        """Initialize the PolicyUpdater.
+        
+        Args:
+            memory: Buffer containing experience replay samples
+            policy_net: The main policy network being trained
+            target_net: Target network for stable Q-value estimation
+            optimizer: Optimizer for updating policy network weights
+            params: Configuration parameters for training
+        """
         self.memory = memory
         self.policy_net = policy_net
         self.target_net = target_net
         self.optimizer = optimizer
+        self.p = params
+        self.device = next(policy_net.parameters()).device
         
-    def _do_forward_pass(self):
+    def _do_forward_pass(self) -> torch.Tensor:
+        """Perform forward pass through policy and target networks.
+        
+        Samples a batch from replay memory, computes current Q-values and target
+        Q-values (using Double DQN if enabled), and returns the loss.
+        
+        Returns:
+            Computed loss between current and target Q-values
+        """
+        # Reset noise for NoisyLinear layers if enabled
         if self.p.noisy_linear:
             with torch.no_grad():
                 self.policy_net.reset_noise()
                 self.target_net.reset_noise()
-        # Sample the batch
-        (s_batch, a_batch, r_batch, ns_batch, d_batch) = self.memory.sample()
-
-        # Calculate the Q-Values
-        Q = self.policy_net(s_batch).gather(1, a_batch)
-
-        # Calculate the target Q-Values using DQN or Double DQN
+                
+        # Sample batch from replay buffer
+        states, actions, rewards, next_states, dones = self.memory.sample()
+        
+        # Calculate current Q-values
+        current_q = self.policy_net(states).gather(1, actions)
+        
+        # Calculate target Q-values using Double DQN or regular DQN
         if self.p.doubleQ:
-            next_actions = self.policy_net(ns_batch).argmax(1, keepdim=True)
+            next_actions = self.policy_net(next_states).argmax(1, keepdim=True)
             with torch.no_grad():
-                next_Q = self.target_net(ns_batch).gather(1, next_actions)
+                next_q = self.target_net(next_states).gather(1, next_actions)
         else:
             with torch.no_grad():
-                next_Q = self.target_net(ns_batch).max(1)[0].detach().unsqueeze(1)
-
-        expected_next_Q = (next_Q * self.p.gamma) * (1 - d_batch.view(-1,1)) + r_batch.view(-1,1)
-        loss = F.smooth_l1_loss(Q, expected_next_Q)
-        return loss
+                next_q = self.target_net(next_states).max(1)[0].detach().unsqueeze(1)
         
-    def _do_backward_pass(self,loss):
+        # Compute expected Q-values
+        expected_q = (next_q * self.p.gamma) * (1 - dones.view(-1, 1)) + rewards.view(-1, 1)
+        
+        # Compute Huber loss
+        return F.smooth_l1_loss(current_q, expected_q)
+        
+    def _do_backward_pass(self, loss: torch.Tensor) -> None:
+        """Perform backward pass to update policy network weights.
+        
+        Args:
+            loss: Loss tensor to backpropagate
+        """
         self.optimizer.zero_grad()
         loss.backward()
+        
         if self.p.gradient_clamping:
             for param in self.policy_net.parameters():
                 param.grad.data.clamp_(-1, 1)
+                
         self.optimizer.step()
 
-    def update(self):
+    def update(self) -> float:
+        """Update policy network weights.
+        
+        Performs either single or grouped updates based on configuration.
+        
+        Returns:
+            Average loss value over all updates
+        """
         self.policy_net.train()
-        # If single threaded, perform the forward pass and update the policy network n_batch_updates times
-        if self.p.group_training_losses == True:  
-            l = 0.0
-            for i in range(self.p.n_batch_updates):
+        
+        # Single-threaded mode: perform updates sequentially
+        if self.p.group_training_losses:
+            total_loss = 0.0
+            for _ in range(self.p.n_batch_updates):
                 loss = self._do_forward_pass()
                 self._do_backward_pass(loss)
-                l += loss.item()
-            loss = l / self.p.n_batch_updates
-            return loss
-
-        # Else: accumulates loss over n_batch_updates before applying the average loss to the backward pass
-      
-        loss = torch.tensor(0.0, device=self.device)
+                total_loss += loss.item()
+            return total_loss / self.p.n_batch_updates
+        
+        # Multi-threaded mode: accumulate losses before update
+        accumulated_loss = torch.tensor(0.0, device=self.device)
         for _ in range(self.p.n_batch_updates):
-            loss += self._do_forward_pass()
-        # Average the losses before backward pass
-        loss = loss / self.p.n_batch_updates
-        self._do_backward_pass(loss)
-        return loss.item()
+            accumulated_loss += self._do_forward_pass()
+            
+        # Average losses and perform single backward pass
+        average_loss = accumulated_loss / self.p.n_batch_updates
+        self._do_backward_pass(average_loss)
+        return average_loss.item()

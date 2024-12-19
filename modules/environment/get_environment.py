@@ -1,92 +1,130 @@
+"""Environment factory functions for Atari environments.
+
+This module provides functions to create single or vectorized Atari environments
+with appropriate wrappers for training and evaluation. The environments are configured
+with custom wrappers that handle:
+- Frame stacking (last 5 frames)
+- Screen resizing (84x84 or 42x42)
+- Episode initialization (fire on reset, random no-ops)
+- Reward clipping (optional)
+- Life loss handling (optional terminal states)
+- Video recording (optional)
+"""
+
+from typing import Callable
+from types import SimpleNamespace
+import gymnasium as gym
+from gymnasium.vector import AsyncVectorEnv, SyncVectorEnv
 from .vectorized_wrappers import MyVecAtariWrapper
 from .wrappers import MyAtariWrapper
-from typing import Dict, Callable
-from types import SimpleNamespace
-from gymnasium.vector import AsyncVectorEnv, SyncVectorEnv
-import gymnasium as gym
 
 
 def get_single_env(
-        train:              bool = False, 
-        record_video:       bool = False,
-        video_dir:          str = None,
-        p:                  SimpleNamespace = None) -> gym.Env:
-
-        ''' 
-        Build gymnasium.Env objects:
-        - train_env: Training environment with terminal on life loss and reward clipping
-        - eval_env: Evaluation environment without terminal on life loss and reward clipping. Possible fire on life loss.
-        - record_env: Evaluation environment with storage of raw frmaes.  Records every episode to an .mp4 file.
+        p: SimpleNamespace,
+        train: bool = False,
+        record_video: bool = False,
+        video_dir: str = None
+) -> gym.Env:
+    """Create a single Atari environment with appropriate wrappers.
+    
+    Args:
+        p: Parameters containing environment configuration
+        train: If True, configure for training (life loss = terminal, clip rewards)
+        record_video: If True, save episode recordings
+        video_dir: Directory to save video recordings if enabled
         
-        Custom wrappers are applied to the environments:
-        - Both environments' outer wrappers return the last 5 images (5, 84, 84) or (5, 42, 42)
-        - Both fire on reset and apply a random number of no-ops (min=5, max=noop_max) at the start of each episode
-        '''
+    Returns:
+        Wrapped Atari environment
         
-        if train:
-            p.terminal_on_life_loss = True
-            p.clip_reward = True
-            p.fire_on_life_loss = False
-        else:
-            p.terminal_on_life_loss = False
-            p.clip_reward = False
-
-        env = gym.make(p.env_name, render_mode='rgb_array')
-        
-        p.n_actions = env.action_space.n # add to global parameters
-
-        return MyAtariWrapper(env, p.noop_min, p.noop_max, p.screen_size, p.seed,
-                             terminal_on_life_loss=p.terminal_on_life_loss,
-                             clip_reward=p.clip_reward,
-                             fire_on_life_loss=p.fire_on_life_loss,
-                             record_video=record_video,
-                             video_dir=video_dir)
-
+    The environment is configured differently for training vs evaluation:
+    - Training: Terminal on life loss, reward clipping
+    - Evaluation: No terminal on life loss, no reward clipping
+    
+    Both modes include:
+    - Frame stacking (last 5 frames)
+    - Random no-ops on reset (between noop_min and noop_max)
+    - Fire action on reset (if applicable)
+    """
+    # Set environment mode
+    p.terminal_on_life_loss = train
+    p.clip_reward = train
+    p.fire_on_life_loss = not train
+    
+    # Create base environment
+    env = gym.make(p.env_name, render_mode='rgb_array')
+    p.n_actions = env.action_space.n
+    
+    # Apply custom wrappers
+    return MyAtariWrapper(
+        env=env,
+        noop_min=p.noop_min,
+        noop_max=p.noop_max,
+        screen_size=p.screen_size,
+        seed=p.seed,
+        terminal_on_life_loss=p.terminal_on_life_loss,
+        clip_reward=p.clip_reward,
+        fire_on_life_loss=p.fire_on_life_loss,
+        record_video=record_video,
+        video_dir=video_dir
+    )
+    
 def get_vectorized_envs(
-                train:              bool = False,
-                record_video:       bool = False,
-                video_dir:          str  = None,
-                p:                  SimpleNamespace = None
-                ) -> gym.Env:
+        p: SimpleNamespace,
+        train: bool = False,
+        record_video: bool = False,
+        video_dir: str = None
+) -> gym.Env:
+    """Create multiple vectorized Atari environments.
     
-    '''
-            Build gymnasium.Env or vectorized environments:
-            - train_env: Training environment with terminal on life loss and reward clipping
-            - eval_env: Evaluation environment without terminal on life loss and reward clipping. Possible fire on life loss.
-            - record_env: Evaluation environment with storage of raw frames. Records every episode to an .mp4 file.
-
-            Custom wrappers are applied to the environments:
-            - Both environments' outer wrappers return the last 5 images (5, 84, 84) or (5, 42, 42)
-            - Both fire on reset and apply a random number of no-ops (min=5, max=noop_max) at the start of each episode.
-    '''
+    Args:
+        p: Parameters containing environment configuration
+        train: If True, configure for training (life loss = terminal, clip rewards)
+        record_video: If True, save episode recordings
+        video_dir: Directory to save video recordings if enabled
+        
+    Returns:
+        Vectorized environment (either sync or async based on parameters)
+        
+    Creates n_envs copies of the environment, either synchronously or
+    asynchronously based on the asynchronous parameter. Each environment
+    is configured with the same wrappers as get_single_env().
     
-    if train:
-        p.terminal_on_life_loss = True
-        p.clip_reward = True
-        p.fire_on_life_loss = False
-    else:
-        p.terminal_on_life_loss = False
-        p.clip_reward = False
-
-    def make_single_env(seed_offset=0) -> Callable[[], gym.Env]:
-        """ Returns a factory function for creating a single environment instance. """
-        def _init():
+    The environments share the same configuration but have different seeds
+    offset from the base seed to ensure different trajectories.
+    """
+    # Set environment mode
+    p.terminal_on_life_loss = train
+    p.clip_reward = train
+    p.fire_on_life_loss = not train
+    
+    def make_env(seed_offset: int = 0) -> Callable[[], gym.Env]:
+        """Create a factory function for a single environment instance.
+        
+        Args:
+            seed_offset: Offset to add to base seed for this environment
+            
+        Returns:
+            Factory function that creates and wraps an environment
+        """
+        def _init() -> gym.Env:
             env = gym.make(p.env_name, render_mode='rgb_array')
             return MyVecAtariWrapper(
-                env=env, 
-                noop_min=p.noop_min, 
-                noop_max=p.noop_max, 
-                screen_size=p.screen_size, 
-                seed=p.seed+seed_offset,
+                env=env,
+                noop_min=p.noop_min,
+                noop_max=p.noop_max,
+                screen_size=p.screen_size,
+                seed=p.seed + seed_offset,
                 terminal_on_life_loss=p.terminal_on_life_loss,
                 clip_reward=p.clip_reward,
                 fire_on_life_loss=p.fire_on_life_loss,
                 record_video=record_video,
-                video_dir=video_dir,
+                video_dir=video_dir
             )
         return _init
-
-    if p.asynchronous:
-        return AsyncVectorEnv([make_single_env(i) for i in range(p.n_envs)])
-    else:
-        return SyncVectorEnv([make_single_env(i) for i in range(p.n_envs)])
+    
+    # Create environment factories with different seeds
+    env_fns = [make_env(i) for i in range(p.n_envs)]
+    
+    # Return either async or sync vectorized environment
+    return (AsyncVectorEnv(env_fns) if p.asynchronous 
+            else SyncVectorEnv(env_fns))

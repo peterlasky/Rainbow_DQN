@@ -20,7 +20,8 @@ from modules.action_handlers import ActionHandler, VecActionHandler
 from modules.evaluator import Evaluator
 from modules.replay_buffers.get_buffers import get_replay_buffers
 from modules.environment.get_environment import get_vectorized_envs, get_single_env
-from modules.utils import FilePathManager, PBar, Logger, Plotter, ipynb
+from modules.utils import PBar, Logger, Plotter, ipynb
+from modules.filepath_manager import FilePathManager
 from IPython.display import clear_output
 
 class DQN:
@@ -60,11 +61,11 @@ class DQN:
         self.action_handler = ActionHandler(params=self.p, policy_net=self.policy_net, action_space=self.eval_env.action_space)
 
         # Evaluator: evaluates the policy network
-        self.evaluator = Evaluator(params=self.p, env=self.eval_env, ah=self.action_handler)
+        self.evaluator = Evaluator(params=self.p, env=self.eval_env, action_handler=self.action_handler)
 
         # Record video: A separate mini-evaluator used to take advantage of the gymnasium video wrapper
         if self.p.record_interval is not None:
-            self.video_recorder = Evaluator(params=self.p, env=self.record_env, ah=self.action_handler)
+            self.video_recorder = Evaluator(params=self.p, env=self.record_env, action_handler=self.action_handler)
 
         # Create logger
         self.logger = Logger(filepaths=self.filepaths, note=self.p.note, params=vars(self.p))

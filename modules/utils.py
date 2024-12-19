@@ -1,210 +1,169 @@
-import os, shutil, datetime
-from tqdm import tqdm
-import torch
-from typing import Dict, List
-from types import SimpleNamespace
-import pandas as pd
+"""Utility classes and functions for experiment management.
+
+This module provides utilities for:
+    - Progress tracking
+    - Experiment logging
+    - Result visualization
+"""
+
+from datetime import datetime
+from typing import Dict, List, Optional, Union
+
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
-from IPython.display import clear_output
+import numpy as np
 import pandas as pd
+import torch
+from IPython.display import clear_output
+from tqdm import tqdm
 
-__all__ = ['FilePathManager', 
-           'PBar', 
-           'Logger', 
-           'Plotter']
+from .filepath_manager import FilePathManager
 
-class FilePathManager:
-    '''
-    simple class that builds the sub-directories and file paths
-    
-    '''
-    def __init__(self, p: SimpleNamespace):
-        
-        ## make sure the parent directory exists (default = 'logs/')
-        self._main_log_dir = p.main_log_dir
-        if not os.path.exists(self._main_log_dir):
-            os.makedirs(self._main_log_dir)
-
-        ## check the group directory
-        self._group_dir = os.path.join(self._main_log_dir, p.group_dir)
-        if not os.path.exists(self._group_dir):
-            os.makedirs(self._group_dir)
-        else:
-            if p.overwrite_previous:
-                print(f'Overwriting {self._group_dir}')
-                shutil.rmtree(self._group_dir)
-                os.makedirs(self._group_dir)
-            else:
-                if not os.path.exists(self._group_dir):
-                    print(f'Creating {self._group_dir}')
-                    os.makedirs(self._group_dir)
-                else:
-                    i = 1
-                    while os.path.exists(self._group_dir + '_' + str(i)):
-                        print(f'{self._group_dir + "_" + str(i)} already exists.')
-                        i += 1
-                    self._group_dir += ('_' + str(i))
-                    print(f'Creating {self._group_dir}')
-                    os.makedirs(self._group_dir)
-            
-
-        ## build the sub-directories 
-        self._video_dir = os.path.join(self._group_dir, p.name, 'videos')
-        self._checkpoints_dir = os.path.join(self._group_dir, f'{p.name}_checkpoints')
-        
-        self._log_filepath = os.path.join(self._group_dir, f'{p.name}.csv')
-        self._note_filepath = os.path.join(self._group_dir, f'{p.name}_notes.txt')
-        self._params_filepath = os.path.join(self._group_dir, f'{p.name}_params.txt')
-        self._plot_filepath = os.path.join(self._group_dir, f'{p.name}_plot.png')
-
-        return
-        if not os.path.exists(self.log_dir):
-            os.makedirs(log_dir)
-        
-        # if the sub_dir already exists, delete it and all its contents if allowed
-        if not os.path.exists(self.sub_dir):
-            os.makedirs(self.sub_dir)
-        else:   
-            if overwrite_previous:
-                shutil.rmtree(self.sub_dir)
-                os.makedirs(self.sub_dir)
-            else:
-                i = 1
-                while os.path.exists(self.sub_dir + '_' + str(i)):
-                    i += 1
-                self.sub_dir += ('_' + str(i))
-                os.makedirs(self.sub_dir)
-        with open(os.path.join(self.sub_dir,'created_' + datetime.datetime.now().strftime('%m-%d_%H_%M') + '.txt'), 'w') as f:
-            f.write('Folder created ' + datetime.datetime.now().strftime('%m-%d-%Y %H:%M'))
-
-        # create the sub_dir again
-        os.makedirs(self.sub_dir, exist_ok=True)
-    
-        # make the checkpoint sub_dir and the video subdir
-        os.makedirs(self._checkpoints_dir)
-        if p.record_interval is not None:
-            self._video_dir = os.path.join(self.sub_dir, f'{name}_video')
-        os.makedirs(self._video_dir)
-
-        # logging directory (csv file)
-
-    # directories
-    @property
-    def main_log_dir(self) -> str:
-        return self._main_log_dir
-
-    @property
-    def group_dir(self) -> str:
-        return self._group_dir
-
-    @property
-    def sub_dir(self) -> str:
-        return self._group_dir
-
-    @property
-    def checkpoints_dir(self) -> str:
-        return self._checkpoints_dir
-    
-    @property
-    def video_dir(self) -> str:
-        return self._video_dir
-    
-    ## filepaths
-    @property
-    def log_filepath(self) -> str:
-        return self._log_filepath
-    
-    @property
-    def note_filepath(self) -> str:
-        return self._note_filepath
-    
-    @property
-    def params_filepath(self) -> str:
-        return self._params_filepath
-    
-    @property
-    def plot_filepath(self) -> str:
-        return self._plot_filepath
-
-# ---- end of FilePathManager class ----
+__all__ = [
+    'PBar',
+    'Logger',
+    'Plotter'
+]
 
 class PBar:
-    ''' simple helper class to manage the pbar object '''
-    def __init__(self, 
-                 max_steps: int, 
-                 increment: int = 1):
+    """Progress bar for experiment tracking.
+    
+    Provides a customized tqdm progress bar for tracking:
+        - Training steps
+        - Episodes completed
+        - Evaluation metrics
+        - Training speed
         
+    Attributes:
+        max_steps: Maximum number of training steps
+        increment: Steps per update
+        elapsed_time: Time elapsed since start
+    """
+    
+    def __init__(self, max_steps: int, increment: int = 1) -> None:
+        """Initialize progress bar.
+        
+        Args:
+            max_steps: Total number of steps to track
+            increment: Number of steps per update
+        """
         self.max_steps = max_steps
         self.increment = increment
 
-        # create pbar object
         self._pbar = tqdm(
-            total=     self.max_steps,
-            desc=      "steps", 
-            ncols=     120,  
-            bar_format="{desc}:{percentage:3.0f}%|{bar}|{n:,}/{total:,}[t:{elapsed}/{remaining}]{postfix}")
+            total=max_steps,
+            desc="steps",
+            ncols=120,
+            bar_format="{desc}:{percentage:3.0f}%|{bar}|"
+                      "{n:,}/{total:,}[t:{elapsed}/{remaining}]{postfix}"
+        )
     
-    def start(self):
+    def start(self) -> None:
+        """Initialize progress bar with zero values."""
         self.update(steps=0, eps=0, avg=0., trailing_avg=0.)
 
-    def update(self, 
-               steps:        int, 
-               eps:          int, 
-               avg:          float, 
-               trailing_avg: float) -> None:
+    def update(
+            self,
+            steps: int,
+            eps: int,
+            avg: float,
+            trailing_avg: float
+    ) -> None:
+        """Update progress bar with current metrics.
         
+        Args:
+            steps: Current step count
+            eps: Episodes completed
+            avg: Current evaluation average
+            trailing_avg: Trailing evaluation average
+        """
         elapsed_time = self.elapsed_time
         rate = steps/elapsed_time if elapsed_time > 0 else 0.0
 
-        self._pbar.set_postfix(
-            {'eps'   : f'{eps:,}',
-             'ev_avg': f'{avg:.1f}', 
-             'tr_avg': f'{trailing_avg:.1f}',
-             'rate'  : f'{rate:.1f} stp/s'})
+        self._pbar.set_postfix({
+            'eps': f'{eps:,}',
+            'ev_avg': f'{avg:.1f}',
+            'tr_avg': f'{trailing_avg:.1f}',
+            'rate': f'{rate:.1f} stp/s'
+        })
+        
         if steps < self.max_steps:
             self._pbar.update(self.increment)
             
     @property
-    def elapsed_time(self):
+    def elapsed_time(self) -> float:
+        """Time elapsed since progress bar start."""
         return self._pbar.format_dict['elapsed']
-# ---- end of PBar class ----
 
 
 class Logger:
-    ''' Helper class to log training progress '''
-    def __init__(self,
-                 filepaths:         FilePathManager,
-                 note:              str,
-                 params:            Dict):
-
+    """Experiment logger for tracking training progress.
+    
+    Handles:
+        - Experiment notes
+        - Parameter logging
+        - Training metrics
+        - Timing information
+        
+    Attributes:
+        filepaths: Manager for log file paths
+    """
+    
+    def __init__(
+            self,
+            filepaths: FilePathManager,
+            note: str,
+            params: Dict
+    ) -> None:
+        """Initialize logger.
+        
+        Args:
+            filepaths: File path manager
+            note: Experiment description
+            params: Parameter dictionary to log
+        """
         self.filepaths = filepaths
    
-        # save note to note_filepath
-        with open(self.filepaths.note_filepath, 'w') as f:
-            f.write(f'file created: {datetime.datetime.now().strftime("%m-%d-%Y %H:%M")}\n\n')
-            f.write(note)
+        # Save experiment note
+        self.filepaths.note_filepath.write_text(
+            f'File created: {datetime.now().strftime("%m-%d-%Y %H:%M")}\n\n{note}'
+        )
         
-        # save params to params_filepath
-        with open(self.filepaths.params_filepath, 'w') as f:
-            for key, value in params.items():
-                f.write(f'{key}: {value}\n')
+        # Save parameters
+        param_text = '\n'.join(f'{k}: {v}' for k, v in params.items())
+        self.filepaths.params_filepath.write_text(param_text)
 
-    def save_to_log(self, 
-                    history_df: pd.DataFrame,
-                    overwrite:  bool=True): 
+    def save_to_log(
+            self,
+            history_df: pd.DataFrame,
+            overwrite: bool = True
+    ) -> None:
+        """Save training history to log file.
         
-        # Overwrite the file if it already exists
+        Args:
+            history_df: DataFrame containing training history
+            overwrite: Whether to overwrite existing log
+        """
         history_df.to_csv(self.filepaths.log_filepath, index=False)
 
-    def append_elapsed_time(self, hh_mm_ss: str, steps: int = None):
-        h, m, s = hh_mm_ss.split(':')
-        steps_per_min = steps/(int(h)*60 + int(m) + int(s)/60)
+    def append_elapsed_time(
+            self,
+            time_str: str,
+            steps: Optional[int] = None
+    ) -> None:
+        """Append elapsed time to experiment note.
+        
+        Args:
+            time_str: Elapsed time in HH:MM:SS format
+            steps: Optional step count to log
+        """
         with open(self.filepaths.note_filepath, 'a') as f:
-            f.write(f'\nElapsed Time: {hh_mm_ss}\n')
+            timestamp = datetime.now().strftime('%m-%d-%Y %H:%M')
+            message = f'\nElapsed time: {time_str}'
             if steps is not None:
-                f.write(f'Steps: {steps:,}\n')
-                f.write(f'1000 steps per minute: {steps_per_min:,.4f}\n')
+                message += f' ({steps:,} steps)'
+            message += f' - {timestamp}'
+            f.write(message)
 
     def save_checkpoint(self, 
                         model:      torch.nn,
@@ -217,7 +176,7 @@ class Logger:
             }
         full_path = os.path.join(self.filepaths.checkpoints_dir, f'checkpoint_{steps}.pth')
         torch.save(checkpoint, full_path)
-# ---- end of Logger class ----
+
 
 class Plotter:
     ''' Helper class to plot training progress '''
@@ -248,7 +207,7 @@ class Plotter:
         if save_plot:
             plt.savefig(self.plot_filepath)
         plt.show()
-# ---- end of Plotter class ----
+
 
 import IPython
 def ipynb():
@@ -261,7 +220,6 @@ def ipynb():
         return "ipykernel" in str(type(get_ipython()))
     except ImportError:
         return False
-# ---- end of ipynb function ----
 
 
 def plot_multiple_results(names: List[str],
