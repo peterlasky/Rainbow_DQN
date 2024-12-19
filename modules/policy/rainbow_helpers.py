@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from typing import Dict
+from types import SimpleNamespace
 import math
 
 __all__ = ['DuelingLayer', 'NoisyLinear', 'CategoricalDQNHelper']
@@ -15,13 +14,13 @@ class CategoricalDQNHelper:
     '''
     def __init__(self, 
                  n_actions: int,
-                 params: Dict,
+                 categorical_params: SimpleNamespace,
                  device: torch.device,
                  layer_norm: bool =False):
         self.n_actions = n_actions
-        self.atom_size = params.get('atom_size', 51)
-        Vmin = params.get('Vmin', -10)
-        Vmax = params.get('Vmax', 10)
+        self.atom_size = categorical_params.atom_size
+        Vmin = categorical_params.Vmin
+        Vmax = categorical_params.Vmax
         
         self.support = torch.linspace(Vmin, Vmax, self.atom_size).to(device)
         self.layer_norm = layer_norm

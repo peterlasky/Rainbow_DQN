@@ -101,16 +101,27 @@ class SumSegmentTree(SegmentTree):
         assert 0 <= upperbound <= self.sum() + 1e-5, "upperbound: {}".format(upperbound)
 
         idx = 1
-
         while idx < self.capacity:  # while non-leaf
             left = 2 * idx
             right = left + 1
             if self.tree[left] > upperbound:
-                idx = 2 * idx
+                idx = left
             else:
-                upperbound -= self.tree[left]
+                upperbound = upperbound - self.tree[left]
                 idx = right
         return idx - self.capacity
+
+    def find_prefixsum_idx(self, prefixsum: float) -> int:
+        """Find the highest index `i` in the tree with sum[0, i] <= prefixsum.
+        
+        Args:
+            prefixsum (float): upper bound on the sum to find
+            
+        Returns:
+            int: highest index satisfying the prefixsum constraint
+        """
+        assert 0 <= prefixsum <= self.sum() + 1e-5
+        return self.retrieve(prefixsum)
 
 
 class MinSegmentTree(SegmentTree):

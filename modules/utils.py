@@ -2,6 +2,7 @@ import os, shutil, datetime
 from tqdm import tqdm
 import torch
 from typing import Dict, List
+from types import SimpleNamespace
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
@@ -18,22 +19,50 @@ class FilePathManager:
     simple class that builds the sub-directories and file paths
     
     '''
-    def __init__(self, 
-                 log_dir:            str, 
-                 name:               str,
-                 overwrite_previous: bool = False):
+    def __init__(self, p: SimpleNamespace):
         
-        self._log_dir = log_dir
-        self.sub_dir = os.path.join(log_dir, name)
+        ## make sure the parent directory exists (default = 'logs/')
+        self._main_log_dir = p.main_log_dir
+        if not os.path.exists(self._main_log_dir):
+            os.makedirs(self._main_log_dir)
 
-        # throw an error if the log_dir does not exist
-        if not os.path.exists('logs'):
-            raise FileNotFoundError('"logs" folder does not exist. Create before using it.')
+        ## check the group directory
+        self._group_dir = os.path.join(self._main_log_dir, p.group_dir)
+        if not os.path.exists(self._group_dir):
+            os.makedirs(self._group_dir)
+        else:
+            if p.overwrite_previous:
+                print(f'Overwriting {self._group_dir}')
+                shutil.rmtree(self._group_dir)
+                os.makedirs(self._group_dir)
+            else:
+                if not os.path.exists(self._group_dir):
+                    print(f'Creating {self._group_dir}')
+                    os.makedirs(self._group_dir)
+                else:
+                    i = 1
+                    while os.path.exists(self._group_dir + '_' + str(i)):
+                        print(f'{self._group_dir + "_" + str(i)} already exists.')
+                        i += 1
+                    self._group_dir += ('_' + str(i))
+                    print(f'Creating {self._group_dir}')
+                    os.makedirs(self._group_dir)
+            
+
+        ## build the sub-directories 
+        self._video_dir = os.path.join(self._group_dir, p.name, 'videos')
+        self._checkpoints_dir = os.path.join(self._group_dir, f'{p.name}_checkpoints')
         
-        if not os.path.exists(log_dir):
+        self._log_filepath = os.path.join(self._group_dir, f'{p.name}.csv')
+        self._note_filepath = os.path.join(self._group_dir, f'{p.name}_notes.txt')
+        self._params_filepath = os.path.join(self._group_dir, f'{p.name}_params.txt')
+        self._plot_filepath = os.path.join(self._group_dir, f'{p.name}_plot.png')
+
+        return
+        if not os.path.exists(self.log_dir):
             os.makedirs(log_dir)
         
-        # if the sub_dir already exists, delete it and all its contents
+        # if the sub_dir already exists, delete it and all its contents if allowed
         if not os.path.exists(self.sub_dir):
             os.makedirs(self.sub_dir)
         else:   
@@ -49,23 +78,30 @@ class FilePathManager:
         with open(os.path.join(self.sub_dir,'created_' + datetime.datetime.now().strftime('%m-%d_%H_%M') + '.txt'), 'w') as f:
             f.write('Folder created ' + datetime.datetime.now().strftime('%m-%d-%Y %H:%M'))
 
-
         # create the sub_dir again
         os.makedirs(self.sub_dir, exist_ok=True)
     
         # make the checkpoint sub_dir and the video subdir
-        self._checkpoints_dir = os.path.join(self.sub_dir, f'{name}_checkpoints')
         os.makedirs(self._checkpoints_dir)
-        self._video_dir = os.path.join(self.sub_dir, f'{name}_video')
+        if p.record_interval is not None:
+            self._video_dir = os.path.join(self.sub_dir, f'{name}_video')
         os.makedirs(self._video_dir)
 
         # logging directory (csv file)
-        self._log_filepath = os.path.join(log_dir, name, f'{name}.csv')
-        self._note_filepath = os.path.join(log_dir, name, f'{name}_notes.txt')
-        self._params_filepath = os.path.join(log_dir, name, f'{name}_params.txt')
-        self._plot_filepath = os.path.join(log_dir, name, f'{name}_plot.png')
-        self._video_filepath = os.path.join(log_dir, name, 'videos')
-    
+
+    # directories
+    @property
+    def main_log_dir(self) -> str:
+        return self._main_log_dir
+
+    @property
+    def group_dir(self) -> str:
+        return self._group_dir
+
+    @property
+    def sub_dir(self) -> str:
+        return self._group_dir
+
     @property
     def checkpoints_dir(self) -> str:
         return self._checkpoints_dir
@@ -74,6 +110,7 @@ class FilePathManager:
     def video_dir(self) -> str:
         return self._video_dir
     
+    ## filepaths
     @property
     def log_filepath(self) -> str:
         return self._log_filepath
@@ -89,14 +126,7 @@ class FilePathManager:
     @property
     def plot_filepath(self) -> str:
         return self._plot_filepath
-    
-    @property
-    def log_dir(self) -> str:
-        return self._log_dir
 
-    @property
-    def video_filepath(self) -> str:
-        return self._video_filepath
 # ---- end of FilePathManager class ----
 
 class PBar:

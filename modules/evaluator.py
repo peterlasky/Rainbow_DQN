@@ -3,8 +3,10 @@ from collections import deque
 import numpy as np
 import pandas as pd
 from typing import Dict
+from types import SimpleNamespace
+import torch
 
-from .action_handlers import ActionHandler # for typing
+from modules.action_handlers import ActionHandler # for typing
 
 class Evaluator:
     ''' Helper class to evaluate the policy network
@@ -15,16 +17,16 @@ class Evaluator:
                 gymnasium's video wrapper. 
     '''
     def __init__(self, 
-                 env:   gym.Env, 
-                 ah:    ActionHandler,  
-                 n:     int = 1,
-                 trail: int = 2):
-        assert n <= trail
-        self.trail = trail  
-        self.n = n
+                 params:    SimpleNamespace,
+                 env:       gym.Env, 
+                 ah:        ActionHandler,):
+        self.p = params  # Store the full params object
+        self.n = self.p.n_games_per_eval
+        self.trail = self.p.trailing_avg_trail
         self.action_handler = ah
+        assert self.n <= self.trail
         self.env = env
-        self.trailing_scores = deque([0], maxlen=trail)
+        self.trailing_scores = deque([0], maxlen=self.trail)
         self.single_history = {
                           'steps':          0, 
                           'best_score':     0.0, 
@@ -45,7 +47,8 @@ class Evaluator:
             score = 0
             while not (done or truncated):
                 state = frames[1:]
-                action = self.action_handler.get_action(state, eval_mode=True)
+                state = torch.from_numpy(state).to(self.p.device)
+                action = self.action_handler.get_action(state, eval=True)  
                 frames, reward, done, truncated, _ = self.env.step(action)
                 score += reward
 
@@ -76,7 +79,3 @@ class Evaluator:
     @property
     def history_df(self) -> pd.DataFrame:
         return self._history_df
-
-
-
-    
