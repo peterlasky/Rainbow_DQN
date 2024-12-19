@@ -208,7 +208,7 @@ If you use ideas from this work, please cite these papers:
 - **Noisy Nets** ([*Noisy Networks for Exploration*](https://arxiv.org/abs/1706.10295), Fortunato et al., 2017)  
 </small>
 
-For coding, understanding, and inspiration, I relied on the following:
+For coding, understanding, and inspiration:
 <small>
 1. Wetlui's basic [DQN implementation](https://github.com/wetliu/dqn_pytorch) was a great starting point for this project. 
 2. Curt Park's repository [rainbow-is-all-you-need](https://github.com/Curt-Park/rainbow-is-all-you-need) was helpful in understanding the underlying concepts of each of the rainbow methods.

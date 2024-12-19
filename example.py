@@ -12,12 +12,6 @@ p = dict(
     overwrite_previous=     False,
     asynchronous=           False,
 
-    doubleQ=                True,
-    dueling=                False,
-    noisy_linear=           False,
-    categorical_DQN=        False,
-    prioritized_replay=     False,
-    n_step_learning=        False,
     group_training_losses = True,
     data_plotting =         True,
     
