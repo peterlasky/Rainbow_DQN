@@ -35,7 +35,7 @@ At `evalation_interval` steps, the evaluator simulates `n_games_per_eval` games 
 Parameters, checkpoints, videos, and evaluation histories are all saved to or updated in the `[log_dir]/[name]` directory, based on parameter settings.    
 
 #### Memory
-The replay buffer takes the most memory.  The main constraint is the replay buffer.  Memory use is `memory_size` $* ($`screen_size`$^2) * 5$.  The default setting of $1,000,000 * 84 * 84 * 5 \sim 35$ GB.  We delete the memory buffer on exiting the training loop to avoid an out of memory crash if, e.g., multiple instances of `DQN` are opened in the notebook.
+The replay buffer takes the most memory.  The main constraint is the replay buffer.  Memory use is `memory_size` $ \times ($`screen_size`$^2)  \times 5$.  The default setting of $1,000,000 \times 84 \times 84 \times 5 \sim 35$ GB.  We delete the memory buffer on exiting the training loop to avoid an out of memory crash if, e.g., multiple instances of `DQN` are opened in the notebook.
 
 #### Vectorization
 ##### *Parallel environments*
@@ -44,7 +44,7 @@ The training loop uses `gymnasium`'s vectorzed environment structure. The origin
 If the `n_envs` parameter is $\geq 4 $ and if the `group_training_losses == True`, the policy update will accumulate the loss over multiple forward passes and train on the average backward pass. For example, if `n_envs ==` 16, it will conduct $16 \div 4 = 4 $ forward passes, accumulate the losses, then conduct $1$ backward pass on $1/4$ of that accumulated loss tensor.
 
 **Note:**
-The `gymnasium` vectorized environments, as the `n_envs` increase, don't appear to produce significant speed increases.  Using Intel I9 (24 cores) and NVIDIA RTX 4090.  I tested up to 32 threads, but the speed increase was diminishing.  I was not running this on an isolated machine, so other processes were possibly interfering.
+The `gymnasium` vectorized environments, as the `n_envs` increase, don't appear to produce significant speed increases.  Using Intel I9 (24 cores) and NVIDIA RTX 4090.  I tested up to 32 threads, but the speed increase was diminishing.  I was not running this on an isolated machine, so other processes were likely interfering.
 - **Basic DQN**: 16 vectorized environments vs single environment: 20-22% faster.
 - **Rainbow DQN**: 16 vectorized environments vs single environment: 25-29% faster.
 
@@ -98,7 +98,7 @@ pip install stable-baselines3
 
 
 #### Default options
-Edit the default parameters directly in the default_parameters.py file:
+You can edit the default parameters directly in the `default_parameters.py` file or pass them in when instantiating a `DQN` object:
 ```python    
   SimpleNamespace(
 

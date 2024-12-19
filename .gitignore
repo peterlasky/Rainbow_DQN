@@ -39,3 +39,5 @@ time_test.ipynb
 todo.md
 clean_pycache.py
 tests/*
+
+.gitignore
