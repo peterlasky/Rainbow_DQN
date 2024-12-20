@@ -1,4 +1,3 @@
-
 ## Vectorized, Customizable Rainbow DQN
 A highly flexible implementation for applying "rainbow DQN methods" to *Atari 2600* games using `gymnasium's` vectorized environments.  I built this mostly ground up to understand the evolving algorithms and fine tune various hyperparameters. I also wanted to explore speed tradeoffs with vectorization a 24-core processor and an RTX-4090 GPU.
 
@@ -85,21 +84,18 @@ Videos are periodically recorded by setting the `record_interval` parameters.  S
 - **Checkpoint playback or training resumption**: Policy checkpoints are currently saved, but no the environment or other training data.  So there is currrently no way to run a simulation from the checkpoint, nor is there a way to resume training from a checkpoint.
 
 #### Set-up
-These steps build the environment as of October 2024, but the dependencies have been changing, so I haven't included an environment file.  
-Please check the `Gymnasium` docs at the [Farama Foundation]('https://gymnasium.farama.org/') if this doesn't work.  The `RecordVideo` wrapper requires `moviepy`. 
+Installing the correct dependencies was tricky because the `gymnasium` ecosystem continues to evolve.
 ```bash
-conda create -n my_atari_env -c conda-forge python=3.10 pytorch numpy swig tqdm -y
-pip install gymnasium[atari,accept-rom-license] moviepy
+conda env create -f environment.yml
 ```
+ See the `gymnasium` docs at the [Farama Foundation]('https://gymnasium.farama.org/') for updates if this fails.  
 
-For `Gymnasium`-compatible wrappers from `stable-baselines3`:
-```bash  
-pip install stable-baselines3   
-```
-
+<div style="font-size: 0.8em;">
+<b>Note:</b> By installing this file, you will be agreeing to non-commercial use of the original Atari 2600 video library. 
+</div>
 
 #### Default options
-You can edit the default parameters directly in the `default_parameters.py` file or pass them in when instantiating a `DQN` object:
+You can edit the default parameters directly in the `default_parameters.py` file or pass them in when instantiating a `DQNAgent` object:
 ```python    
   SimpleNamespace(
 
@@ -125,7 +121,7 @@ You can edit the default parameters directly in the `default_parameters.py` file
     fire_on_life_loss=        False,
 
     # Device
-    device=                   torch.device('cuda'),
+    device=                   'cuda',
 
     # Model Parameters
     memory_size=              1_000_000,
@@ -152,31 +148,31 @@ You can edit the default parameters directly in the `default_parameters.py` file
     pbar_update_interval=     100,
     target_update_interval=   10_000,
     eval_interval=            50_000,
-    n_games_per_eval=        10,
+    n_games_per_eval=         10,
     checkpoint_interval=      2_500_000,
-    record_interval=         None,
+    record_interval=          None,
 
     # Exit Conditions
-    max_steps=               20_000_000,
-    exit_trailing_average=   10_000,
-    exit_time_limit=        1200,  # Time in minutes
+    max_steps=                20_000_000,
+    exit_trailing_average=    10_000,
+    exit_time_limit=          1200,  # Time in minutes
 
     # Rainbow Parameters
     # Categorical DQN Parameters
-    atom_size=               51,
-    Vmin=                    -10,
-    Vmax=                    10,
+    atom_size=                51,
+    Vmin=                     -10,
+    Vmax=                     10,
 
     # Priority Replay Parameters
-    alpha=                   0.6,
-    beta_start=              0.4,
-    beta_frames=             100_000,
-    pr_epsilon=              1e-5,
+    alpha=                    0.6,
+    beta_start=               0.4,
+    beta_frames=              100_000,
+    pr_epsilon=               1e-5,
 
     # N-step Learning Parameters
-    n_steps=                 3,
-    n_memory_size=           500,
-    n_gamma=                 0.99,
+    n_steps=                  3,
+    n_memory_size=            500,
+    n_gamma=                  0.99,
 
     # Logging Parameters
     main_log_dir=            'logs',

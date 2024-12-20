@@ -41,3 +41,9 @@ clean_pycache.py
 tests/*
 
 .gitignore
+
+.vscode/
+.venv/
+.pytest_cache/
+
+

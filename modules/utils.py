@@ -8,7 +8,7 @@ This module provides utilities for:
 
 from datetime import datetime
 from typing import Dict, List, Optional, Union
-
+import os
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import pandas as pd
@@ -47,22 +47,23 @@ class PBar:
         """
         self.max_steps = max_steps
         self.increment = increment
-
-        self._pbar = tqdm(
-            total=max_steps,
-            desc="steps",
-            ncols=120,
-            bar_format="{desc}:{percentage:3.0f}%|{bar}|"
-                      "{n:,}/{total:,}[t:{elapsed}/{remaining}]{postfix}"
-        )
+        self.bar_format="{desc}:{percentage:3.0f}%|{bar}|{n:,}/{total:,}[t:{elapsed}/{remaining}]{postfix}"
+        self._pbar = None
     
     def start(self) -> None:
         """Initialize progress bar with zero values."""
-        self.update(steps=0, eps=0, avg=0., trailing_avg=0.)
+        self._pbar = tqdm(
+            total=self.max_steps,
+            desc="steps",
+            ncols=140,
+            bar_format=self.bar_format
+        )
+        self.update(steps=0, eps=0, update_count=0, avg=0., trailing_avg=0.)
 
     def update(
             self,
             steps: int,
+            update_count: int,
             eps: int,
             avg: float,
             trailing_avg: float
@@ -81,6 +82,7 @@ class PBar:
         self._pbar.set_postfix({
             'eps': f'{eps:,}',
             'ev_avg': f'{avg:.1f}',
+            'pol_updts': f'{update_count:,}',
             'tr_avg': f'{trailing_avg:.1f}',
             'rate': f'{rate:.1f} stp/s'
         })

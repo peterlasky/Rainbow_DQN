@@ -110,7 +110,10 @@ class ParameterHandler:
         # Screen size validation
         if p.screen_size not in [42, 84]:
             raise ValueError(f"Invalid screen size: {p.screen_size}. Must be 42 or 84.")
-            
+        
+        # n_envs limitations
+        assert p.n_envs <= p.policy_update_interval or p.n_envs % p.policy_update_interval == 0, \
+            f"n_envs={p.n_envs} must be divisible by policy_update_interval={p.policy_update_interval}."
         # Interval validations
         intervals = {
             'policy_update_interval_adjusted': p.policy_update_interval_adjusted,
@@ -139,7 +142,7 @@ class ParameterHandler:
     def _configure_update_frequency(self) -> None:
         """Configure policy update frequency based on environment count."""
         p = self._p
-        
+        inteval_change, batch_update_change = False, False
         if p.n_envs <= p.policy_update_interval:
             # Fewer envs than update interval - do fewer updates
             p.policy_update_interval_adjusted = p.policy_update_interval // p.n_envs

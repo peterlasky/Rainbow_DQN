@@ -37,6 +37,7 @@ class PolicyUpdater:
         self.optimizer = optimizer
         self.p = params
         self.device = next(policy_net.parameters()).device
+        self.update_count = 0
         
     def _do_forward_pass(self) -> torch.Tensor:
         """Perform forward pass through policy and target networks.
@@ -47,6 +48,7 @@ class PolicyUpdater:
         Returns:
             Computed loss between current and target Q-values
         """
+        self.update_count+=1
         # Reset noise for NoisyLinear layers if enabled
         if self.p.noisy_linear:
             with torch.no_grad():
@@ -60,16 +62,15 @@ class PolicyUpdater:
         current_q = self.policy_net(states).gather(1, actions)
         
         # Calculate target Q-values using Double DQN or regular DQN
-        if self.p.doubleQ:
-            next_actions = self.policy_net(next_states).argmax(1, keepdim=True)
-            with torch.no_grad():
+        with torch.no_grad():
+            if self.p.doubleQ:
+                next_actions = self.policy_net(next_states).argmax(1, keepdim=True)
                 next_q = self.target_net(next_states).gather(1, next_actions)
-        else:
-            with torch.no_grad():
-                next_q = self.target_net(next_states).max(1)[0].detach().unsqueeze(1)
+            else:
+                next_q = self.target_net(next_states).max(1)[0].unsqueeze(1)
         
         # Compute expected Q-values
-        expected_q = (next_q * self.p.gamma) * (1 - dones.view(-1, 1)) + rewards.view(-1, 1)
+        expected_q = rewards.view(-1, 1) + (self.p.gamma * next_q * (1 - dones.view(-1, 1)))
         
         # Compute Huber loss
         return F.smooth_l1_loss(current_q, expected_q)
@@ -99,21 +100,21 @@ class PolicyUpdater:
         """
         self.policy_net.train()
         
-        # Single-threaded mode: perform updates sequentially
+        # Group training losses: accumulate losses before update
         if self.p.group_training_losses:
-            total_loss = 0.0
+            accumulated_loss = torch.tensor(0.0, device=self.device)
             for _ in range(self.p.n_batch_updates_adjusted):
-                loss = self._do_forward_pass()
-                self._do_backward_pass(loss)
-                total_loss += loss.item()
-            return total_loss / self.p.n_batch_updates_adjusted
-        
-        # Multi-threaded mode: accumulate losses before update
-        accumulated_loss = torch.tensor(0.0, device=self.device)
-        for _ in range(self.p.n_batch_updates_adjusted):
-            accumulated_loss += self._do_forward_pass()
+                accumulated_loss += self._do_forward_pass()
             
-        # Average losses and perform single backward pass
-        average_loss = accumulated_loss / self.p.n_batch_updates_adjusted
-        self._do_backward_pass(average_loss)
-        return average_loss.item()
+            # Average losses and perform single backward pass
+            average_loss = accumulated_loss / self.p.n_batch_updates_adjusted
+            self._do_backward_pass(average_loss)
+            return average_loss.item()
+        
+        # Single-threaded mode: perform updates sequentially
+        total_loss = 0.0
+        for _ in range(self.p.n_batch_updates_adjusted):
+            loss = self._do_forward_pass()
+            self._do_backward_pass(loss)
+            total_loss += loss.item()
+        return total_loss / self.p.n_batch_updates_adjusted

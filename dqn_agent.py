@@ -1,4 +1,5 @@
 import gymnasium as gym
+from modules import parameter_handler
 import numpy as np
 import torch
 import random
@@ -7,11 +8,10 @@ from torch.optim import Adam
 from types import SimpleNamespace
 from typing import Dict, Tuple, List
 from IPython.display import clear_output
-try:
-    import ale_py
-    gym.register_envs(ale_py)
-except ImportError:
-    print("Warning: ale_py not found. Some Atari environments may not be available.")
+
+import ale_py
+from ale_py import ALEInterface, roms
+gym.register_envs(ale_py)
 
 from modules.parameter_handler import ParameterHandler
 from modules.policy.atari_policy_net import AtariPolicyNet
@@ -22,8 +22,6 @@ from modules.filepath_handler import FilePathHandler
 from modules.get_replay_buffers import get_replay_buffers
 from modules.environment.get_environment import get_vectorized_envs, get_single_env
 from modules.utils import PBar, Logger, Plotter, ipynb
-
-
 
 class DQNAgent:
     def __init__(self, params: SimpleNamespace):
@@ -137,7 +135,6 @@ class DQNAgent:
                         clear_output()
                         self.plotter.plot_data(self.evaluator.history_df)
     
-
             # Record video
             if self.p.record_interval is not None:
                 if steps % self.p.intervals.record_interval_adjusted == 0:
@@ -149,15 +146,12 @@ class DQNAgent:
 
             # Update progress bar
             if steps % self.p.intervals.pbar_update_interval_adjusted == 0:
-                self.pbar.update(steps=steps, eps=episodes, avg=self.evaluator.avg, trailing_avg=self.evaluator.trailing_avg)
+                self.pbar.update(steps=steps, eps=episodes, update_count=self.policy_updater.update_count, avg=self.evaluator.avg, trailing_avg=self.evaluator.trailing_avg)
 
             # Check exit conditions
-            if steps >= self.p.max_steps:
-                break
-            if self.evaluator.trailing_avg >= self.p.exit_trailing_average:
-                break
-            if self.pbar.elapsed_time >= self.p.exit_time_limit_seconds * 60:
-                break
+            if steps >= self.p.max_steps: break
+            if self.evaluator.trailing_avg >= self.p.exit_trailing_average: break
+            if self.pbar.elapsed_time >= self.p.exit_time_limit_seconds * 60: break
 
         # Exit cleanly
         self._cleanup()
