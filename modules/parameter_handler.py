@@ -107,6 +107,12 @@ class ParameterHandler:
         """Validate parameter values and combinations."""
         p = self._p
         
+        # Filename validation
+        if p.group_dir is None:
+            raise ValueError("Group directory must be specified.")
+        if p.name is None:
+            raise ValueError("Experiment name must be specified.")
+            
         # Screen size validation
         if p.screen_size not in [42, 84]:
             raise ValueError(f"Invalid screen size: {p.screen_size}. Must be 42 or 84.")

@@ -1,6 +1,4 @@
 from dataclasses import dataclass
-import torch
-__all__ = ['DefaultParameters']
 
 @dataclass
 class DefaultParameters:
@@ -8,9 +6,9 @@ class DefaultParameters:
     doubleQ                   : bool = False
     dueling                   : bool = False
     categorical_DQN           : bool = False
-    noisy_linear             : bool = False
+    noisy_linear              : bool = False
     prioritized_replay        : bool = False
-    n_step_learning          : bool = False
+    n_step_learning           : bool = False
 
     # Vectorization Parameters
     n_envs                    : int = 8
@@ -23,7 +21,7 @@ class DefaultParameters:
     screen_size               : int = 84
     noop_min                  : int = 10
     noop_max                  : int = 10
-    fire_on_life_loss        : bool = False
+    fire_on_life_loss         : bool = False
 
     # Device
     device                    : str = 'cuda'
@@ -53,14 +51,14 @@ class DefaultParameters:
     pbar_update_interval      : int = 100
     target_update_interval    : int = 10_000
     eval_interval             : int = 50_000
-    n_games_per_eval         : int = 10
+    n_games_per_eval          : int = 10
     checkpoint_interval       : int = 2_500_000
     record_interval           : None = None
 
     # Exit Conditions
     max_steps                 : int = 20_000_000
     exit_trailing_average     : int = 10_000
-    exit_time_limit          : int = 1200  # Time in minutes
+    exit_time_limit           : int = 1200  # Time in minutes
 
     # Rainbow Parameters
     # Categorical DQN Parameters
@@ -81,9 +79,9 @@ class DefaultParameters:
 
     # Logging Parameters
     main_log_dir              : str = 'logs'
-    group_dir                 : str = '[no group name]'
+    group_dir                 : str = None
     video_dir                 : str = 'videos'
-    name                      : str = '[no name]'
+    name                      : str = None
     note                      : str = '[no note]'
     overwrite_previous        : bool = False
     data_logging              : bool = True

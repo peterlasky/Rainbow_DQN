@@ -1,0 +1,51 @@
+# Ignore Python cache files globally
+__pycache__/
+
+# Ignore experiments folder
+experiments/
+
+# Ignore all log files but keep the logs folder
+logs/*
+!logs/.gitkeep
+!logs/
+
+# Keep the modules folder and all its contents except the __pycache__ folder or a __pycache__ folder in a subdirectory 
+modules/__pycache__/
+!modules/
+modules/**/__pycache__/
+
+# notebook for my own local testing.  Leave other example file unch'd.
+example_local.ipynb
+
+# make sure the assets are properly uploaded
+!assets/example_video.mp4
+!assets/plot_example.png
+
+# Ignore my git updater script
+git_update.sh
+
+modules/environment/combined.py
+scratchpad.ipynb
+
+# Ignore the old files
+old_files/
+
+# Ignore some of the test files
+test.ipynb
+time_test.ipynb
+
+# Ignore my TODO list
+todo.md
+clean_pycache.py
+tests/*
+
+.gitignore
+.git/
+
+.vscode/
+.venv/
+.pytest_cache/
+
+# Docker specific ignores
+Dockerfile
+.dockerignore

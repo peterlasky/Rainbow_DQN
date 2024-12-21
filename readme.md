@@ -40,13 +40,14 @@ The replay buffer takes the most memory.  The main constraint is the replay buff
 #### Vectorization
 ##### *Parallel environments*
 The training loop uses `gymnasium`'s vectorzed environment structure. The original *DeepMind* algortith performs a policy update every 4 steps, on a batch of $32$ transitions taken from the replay buffer.  In a vectorized environment, we need to adjust:  If `n_envs` $=1$, we perform a policy update every 4 steps.  If `n_envs` $= 4$, we perform a policy update each step. However, if `n_envs` $= 8$, we perform two updates of $32$ each step and, similarly, if `n_envs`=16 we perform four batch updates of $32$ each step.  The effect of training multiple batches consecutively (i.e., out of turn) becomes irrelevant as a large memory buffer is filled.
-##### *Option to grouping the backward passes for large `n_envs`*
+##### *Option to group the backward passes for large `n_envs`*
 If the `n_envs` parameter is $ \geq 4 $ and if the `group_training_losses == True`, the policy update will accumulate the loss over multiple forward passes and train on the average backward pass. For example, if `n_envs ==` 16, it will conduct $16 \div 4 = 4 $ forward passes, accumulate the losses, then conduct $1$ backward pass on $1/4$ of that accumulated loss tensor.
-
-**Note:**
-The `gymnasium` vectorized environments, as the `n_envs` increase, don't appear to produce significant speed increases.  Using Intel I9 (24 cores) and NVIDIA RTX 4090.  I tested up to 32 threads, but the speed increase was diminishing.  I was not running this on an isolated machine, so other processes were likely interfering.
+<div style="font-size: 0.8em;">
+<b> Note: </b>
+The `gymnasium` vectorized environments don't appear to produce significant speed increases as `n_envs` increases..  Using Intel I9 (24 cores) and NVIDIA RTX 4090.  I tested up to 32 threads, but the speed increase was diminishing.  I was not running this on an isolated machine, so other processes were likely interfering.
 - **Basic DQN**: 16 vectorized environments vs single environment: 20-22% faster.
 - **Rainbow DQN**: 16 vectorized environments vs single environment: 25-29% faster.
+</div>  
 
 #### Environment wrappers
 I've created custom `gymnasium` wrappers that likely exist. I've also used a few `gymnasium`-compatible wrappers from the `stable_baselines3` library.
