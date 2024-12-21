@@ -26,34 +26,32 @@ Parameters are passed by dictionary, then passed to the parameter handler. Each 
   dqn.train()
 ```
 
-At `evalation_interval` steps, the evaluator simulates `n_games_per_eval` games (all lives) and updates the plots:
-<div style="width: auto; height: calc(100% - 13px); overflow: hidden;">
-  <img src="assets/plot_example.png" style="display: block; width: 50%; margin-bottom: -13px;" alt="Plot Example">
-</div>
+At `evaluation_interval` steps, the evaluator simulates `n_games_per_eval` games (all lives) and updates the plots:
+
+![Plot Example](assets/plot_example.png)
 
 #### Logging
 Parameters, checkpoints, videos, and evaluation histories are all saved to or updated in the `[log_dir]/[name]` directory, based on parameter settings.    
 
 #### Memory
-The replay buffer takes the most memory.  The main constraint is the replay buffer.  Memory use is `memory_size` $ \times ($`screen_size`$^2)  \times 5$.  The default setting of $1,000,000 \times 84 \times 84 \times 5 \sim 35$ GB.  We delete the memory buffer on exiting the training loop to avoid an out of memory crash if, e.g., multiple instances of `DQN` are opened in the notebook.
+The replay buffer takes the most memory. The main constraint is the replay buffer. Memory use is `memory_size` × (`screen_size`²) × 5. The default setting of 1,000,000 × 84 × 84 × 5 ≈ 35 GB. We delete the memory buffer on exiting the training loop to avoid an out of memory crash if, e.g., multiple instances of `DQN` are opened in the notebook.
 
 #### Vectorization
 ##### *Parallel environments*
-The training loop uses `gymnasium`'s vectorzed environment structure. The original *DeepMind* algortith performs a policy update every 4 steps, on a batch of $32$ transitions taken from the replay buffer.  In a vectorized environment, we need to adjust:  If `n_envs` $=1$, we perform a policy update every 4 steps.  If `n_envs` $= 4$, we perform a policy update each step. However, if `n_envs` $= 8$, we perform two updates of $32$ each step and, similarly, if `n_envs`=16 we perform four batch updates of $32$ each step.  The effect of training multiple batches consecutively (i.e., out of turn) becomes irrelevant as a large memory buffer is filled.
+The training loop uses `gymnasium`'s vectorized environment structure. The original *DeepMind* algorithm performs a policy update every 4 steps, on a batch of 32 transitions taken from the replay buffer. In a vectorized environment, we need to adjust: If `n_envs` = 1, we perform a policy update every 4 steps. If `n_envs` = 4, we perform a policy update each step. However, if `n_envs` = 8, we perform two updates of 32 each step and, similarly, if `n_envs` = 16 we perform four batch updates of 32 each step. The effect of training multiple batches consecutively (i.e., out of turn) becomes irrelevant as a large memory buffer is filled.
+
 ##### *Option to group the backward passes for large `n_envs`*
-If the `n_envs` parameter is $ \geq 4 $ and if the `group_training_losses == True`, the policy update will accumulate the loss over multiple forward passes and train on the average backward pass. For example, if `n_envs ==` 16, it will conduct $16 \div 4 = 4 $ forward passes, accumulate the losses, then conduct $1$ backward pass on $1/4$ of that accumulated loss tensor.
-<div style="font-size: 0.8em;">
-<b> Note: </b>
-The `gymnasium` vectorized environments don't appear to produce significant speed increases as `n_envs` increases..  Using Intel I9 (24 cores) and NVIDIA RTX 4090.  I tested up to 32 threads, but the speed increase was diminishing.  I was not running this on an isolated machine, so other processes were likely interfering.
-- **Basic DQN**: 16 vectorized environments vs single environment: 20-22% faster.
-- **Rainbow DQN**: 16 vectorized environments vs single environment: 25-29% faster.
-</div>  
+If the `n_envs` parameter is ≥ 4 and if the `group_training_losses == True`, the policy update will accumulate the loss over multiple forward passes and train on the average backward pass. For example, if `n_envs` = 16, it will conduct 16 ÷ 4 = 4 forward passes, accumulate the losses, then conduct 1 backward pass on 1/4 of that accumulated loss tensor.
+
+> **Note:** The `gymnasium` vectorized environments don't appear to produce significant speed increases as `n_envs` increases. Using Intel I9 (24 cores) and NVIDIA RTX 4090. I tested up to 32 threads, but the speed increase was diminishing. I was not running this on an isolated machine, so other processes were likely interfering.
+> - **Basic DQN**: 16 vectorized environments vs single environment: 20-22% faster.
+> - **Rainbow DQN**: 16 vectorized environments vs single environment: 25-29% faster.
 
 #### Environment wrappers
 I've created custom `gymnasium` wrappers that likely exist. I've also used a few `gymnasium`-compatible wrappers from the `stable_baselines3` library.
 
 1. `five_stack`: stores each state / new state in a combined 5 frame stack observation, such that [:4] is the *state* and [1:] is the *next_state*.
-2. `fire_on_life_loss`: the original **DeepMind** algorithim used a 5% epsilon for evaluation mode to avoid games getting stuck.  For example, games like `breakout` that require a `FIRE` command to restart after each life lost will pause indefinitely if we use a pure `argmax` policy that returns an action other than `FIRE`.  This wrapper, if used, automatically triggers a fire when a life is lost, allowing us to lower the epsilon closer to zero to rely solely on the policy's best actions.  In many games the difference won't matter.
+2. `fire_on_life_loss`: the original **DeepMind** algorithm used a 5% epsilon for evaluation mode to avoid games getting stuck.  For example, games like `breakout` that require a `FIRE` command to restart after each life lost will pause indefinitely if we use a pure `argmax` policy that returns an action other than `FIRE`.  This wrapper, if used, automatically triggers a fire when a life is lost, allowing us to lower the epsilon closer to zero to rely solely on the policy's best actions.  In many games the difference won't matter.
 3. `noop_reset` allows for a range of noop_steps upon a reset.
 4. `set_seed`: to seed single or vectorized environments.  In my implementation the same seed is applied as the random and numpy seed (although vectorized seeds are increments of the given seed)
 
@@ -80,20 +78,46 @@ plot_multiple_results([log_dir], names, col)
 #### Video
 Videos are periodically recorded by setting the `record_interval` parameters.  Set to `None` if no video needed.
 
+#### Batch and Layer Norm
+The original *DeepMind* paper was published before the introduction of batch normalization.  I've added optional flags for batch normalization (for the convolutional layers) and layer normalization (for the fully connected layers).
+
 #### To-dos / Future updates 
 - **Tensorboard**: Move the monitoring of progress to a tensorboard to avoid the need to run experiments in Jupyter. 
-- **Checkpoint playback or training resumption**: Policy checkpoints are currently saved, but no the environment or other training data.  So there is currrently no way to run a simulation from the checkpoint, nor is there a way to resume training from a checkpoint.
+- **Checkpoint playback or training resumption**: Policy checkpoints are currently saved, but not the environment or other training data.  So there is currently no way to run a simulation from the checkpoint, nor is there a way to resume training from a checkpoint.
+- 
 
 #### Set-up
 Installing the correct dependencies was tricky because the `gymnasium` ecosystem continues to evolve.
 ```bash
 conda env create -f environment.yml
 ```
- See the `gymnasium` docs at the [Farama Foundation]('https://gymnasium.farama.org/') for updates if this fails.  
+See the `gymnasium` docs at the [Farama Foundation](https://gymnasium.farama.org/) for updates if this fails.  
 
-<div style="font-size: 0.8em;">
-<b>Note:</b> By installing this file, you will be agreeing to non-commercial use of the original Atari 2600 video library. 
-</div>
+> **Note:** By installing this file, you will be agreeing to non-commercial use of the original Atari 2600 video library. 
+
+#### Docker
+To build and run the project in a containerized environment:
+
+```bash
+# Build the Docker image
+docker build -t rdqn-vectorized .
+
+# Run with GPU support
+docker run --gpus all rdqn-vectorized
+
+# Run with custom parameters (example)
+docker run --gpus all -v $(pwd)/logs:/app/logs -v $(pwd)/experiments:/app/experiments rdqn-vectorized python main.py --env SpaceInvaders-v4 --n_envs 8
+```
+
+The Docker container includes:
+- CUDA 12.1 support for GPU acceleration
+- All required dependencies pre-installed
+- Volume mounts for logs and experiment results
+
+For development work, you can mount your local code:
+```bash
+docker run --gpus all -v $(pwd):/app rdqn-vectorized
+```
 
 #### Default options
 You can edit the default parameters directly in the `default_parameters.py` file or pass them in when instantiating a `DQNAgent` object:
@@ -188,11 +212,10 @@ You can edit the default parameters directly in the `default_parameters.py` file
 )
   ```
 
-#### Citations / acknolowledgements / licenses:
+#### Citations / acknowledgements / licenses:
 If you use ideas from this work, please cite these papers:
 1. Mnih, V., Kavukcuoglu, K., Silver, D., Rusu, A. A., Veness, J., Bellemare, M. G., ... & Hassabis, D. (2013). *Playing Atari with Deep Reinforcement Learning*, [arXiv:1312.5602](https://arxiv.org/abs/1312.5602)  
 2. Hessel, M., Modayil, J., Van Hasselt, H., Schaul, T., Ostrovski, G., Dabney, W., ... & Silver, D. (2017). *Rainbow: Combining Improvements in Deep Reinforcement Learning*,[arXiv:1710.02298](https://arxiv.org/abs/1710.02298). This paper integrates several key advancements in deep reinforcement learning, including:
-<small>
 - **Double Q-Learning** ([*Deep Reinforcement Learning with Double Q-learning*](https://arxiv.org/abs/1509.06461), Van Hasselt et al., 2015)   
   
 - **Prioritized Experience Replay** ([*Prioritized Experience Replay*](https://arxiv.org/abs/1511.05952), Schaul et al., 2015)  
@@ -204,13 +227,10 @@ If you use ideas from this work, please cite these papers:
 - **Distributional RL** ([*A Distributional Perspective on Reinforcement Learning*](https://arxiv.org/abs/1707.06887), Bellemare et al., 2017)  
   
 - **Noisy Nets** ([*Noisy Networks for Exploration*](https://arxiv.org/abs/1706.10295), Fortunato et al., 2017)  
-</small>
 
 For coding, understanding, and inspiration:
-<small>
 1. Wetlui's basic [DQN implementation](https://github.com/wetliu/dqn_pytorch) was a great starting point for this project. 
 2. Curt Park's repository [rainbow-is-all-you-need](https://github.com/Curt-Park/rainbow-is-all-you-need) was helpful in understanding the underlying concepts of each of the rainbow methods.
-</small>
 
 Also, thanks to:
 - [Farama Foundation](https://gymnasium.farama.org/) for producing, maintaining, `gymnasium` environments, documentation, and libraries.

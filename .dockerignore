@@ -40,6 +40,7 @@ clean_pycache.py
 tests/*
 
 .gitignore
+
 .git/
 
 .vscode/
